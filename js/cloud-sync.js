@@ -1,6 +1,6 @@
 /**
- * CloudSync - Google Firebase Realtime Engine + Google FCM Cloud Messaging (VAPID)
- * Dual-Channel Background Push Trigger & Diagnostic System.
+ * CloudSync - Google Firebase Realtime Engine + Vercel Serverless Web Push (/api/push)
+ * Hardware-level push notifications waking up the phone when locked and app is closed.
  */
 const CloudSync = {
   firebaseConfig: {
@@ -14,15 +14,15 @@ const CloudSync = {
     measurementId: "G-1E7PXG23FV"
   },
 
-  vapidKey: "BN-joOU-IJeLmfVZTtU6o-CMo8B9YR6n1I7EcIVDRdoOihzRxYx8aw5ES3C6tywE_pVCYjvaQ9XeSIP0UlG-PMw",
+  // Clave Pública VAPID estándar para Web Push
+  vapidKey: "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuYkr3qBUYIhbQFLXYp5Nksh8U",
 
-  householdCode: 'HOGAR-2026',
+  householdCode: '19125118',
   sessionId: null,
   currentUserId: 'p1', // 'p1' (Ella) o 'p2' (Él)
   dbRef: null,
-  messaging: null,
-  myFcmToken: null,
-  partnerFcmToken: null,
+  mySubscription: null,
+  partnerSubscription: null,
   isConnected: false,
   isInitialized: false,
   lastNotifiedNoteId: null,
@@ -30,12 +30,15 @@ const CloudSync = {
   init() {
     try {
       this.sessionId = 'ses_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-      this.householdCode = (localStorage.getItem('hogarduo_household_code') || 'HOGAR-2026').trim().toUpperCase();
+      this.householdCode = (localStorage.getItem('hogarduo_household_code') || '19125118').trim().toUpperCase();
       this.currentUserId = localStorage.getItem('hogarduo_user_id') || 'p1';
       this.lastNotifiedNoteId = localStorage.getItem('hogarduo_last_notified_note') || null;
 
       // 1. Detectar auto-vinculación por Código QR
       this.checkUrlInviteParams();
+
+      // 2. Listeners de auto-reconexión al despertar el celular
+      this.setupReconnectionListeners();
 
       this.updateCloudUI();
       this.initFirebase();
@@ -43,6 +46,24 @@ const CloudSync = {
     } catch (e) {
       console.warn('CloudSync init error:', e);
     }
+  },
+
+  // Auto-reconexión instantánea al desbloquear o enfocar el celular
+  setupReconnectionListeners() {
+    const handleWakeup = () => {
+      if (typeof firebase !== 'undefined' && firebase.database) {
+        try { firebase.database().goOnline(); } catch(e) {}
+      }
+      if (this.dbRef) {
+        this.fetchCloudStateOnce();
+      }
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') handleWakeup();
+    });
+    window.addEventListener('focus', handleWakeup);
+    window.addEventListener('online', handleWakeup);
   },
 
   checkUrlInviteParams() {
@@ -93,60 +114,59 @@ const CloudSync = {
       }
 
       this.connect();
-      this.initFCM();
+      this.registerWebPushSubscription();
     } catch (e) {
       console.warn('Firebase init warning:', e);
       this.updateStatus('online');
     }
   },
 
-  // Inicializar Google FCM y registrar token del dispositivo
-  async initFCM() {
-    if (typeof firebase === 'undefined' || !firebase.messaging) return;
+  // Convertir VAPID Base64 a Uint8Array
+  urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  },
+
+  // Registrar suscripción de hardware Web Push en Google/Apple
+  async registerWebPushSubscription() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
     try {
       if ('Notification' in window && Notification.permission === 'granted') {
-        const messaging = firebase.messaging();
-        this.messaging = messaging;
-
-        // Escuchar mensajes en primer plano
-        messaging.onMessage((payload) => {
-          const title = payload.notification?.title || payload.data?.title || '💌 Nota de tu pareja';
-          const body = payload.notification?.body || payload.data?.body || 'Tienes un nuevo mensaje';
-          
-          if (typeof App !== 'undefined') {
-            App.showInAppBanner(title, body, 'love');
-            App.sendPushNotification(title, body);
-          }
-          if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-          if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-        });
-
-        if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
-          const token = await messaging.getToken({
-            vapidKey: this.vapidKey,
-            serviceWorkerRegistration: registration
+        const registration = await navigator.serviceWorker.ready;
+        
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: this.urlBase64ToUint8Array(this.vapidKey)
           });
+        }
 
-          if (token) {
-            this.myFcmToken = token;
-            this.saveDeviceToken(token);
-          }
+        if (subscription) {
+          this.mySubscription = subscription.toJSON();
+          this.savePushSubscription(this.mySubscription);
         }
       }
     } catch (err) {
-      console.warn('FCM setup warning:', err);
+      console.warn('Web Push subscription skipped:', err);
     }
     this.updateDiagnosticsUI();
   },
 
-  saveDeviceToken(token) {
-    if (!token || !this.isInitialized || !firebase.database) return;
+  // Guardar suscripción Web Push en Firebase
+  savePushSubscription(subscription) {
+    if (!subscription || !this.isInitialized || !firebase.database) return;
     try {
       const houseKey = this.getCleanHouseholdKey();
-      firebase.database().ref(`households/${houseKey}/fcm_tokens/${this.currentUserId}`).set({
-        token: token,
+      firebase.database().ref(`households/${houseKey}/subscriptions/${this.currentUserId}`).set({
+        ...subscription,
         updatedAt: Date.now()
       });
     } catch (e) {}
@@ -160,7 +180,7 @@ const CloudSync = {
     } catch (e) {}
     this.updateCloudUI();
     this.connect();
-    this.initFCM();
+    this.registerWebPushSubscription();
   },
 
   setCurrentUser(userId) {
@@ -174,16 +194,26 @@ const CloudSync = {
       const p = Store.state?.profiles?.[userId];
       App.showToast(`Dispositivo configurado como: ${p?.name || userId} 📱`, 'success');
     }
-    this.initFCM();
+    this.registerWebPushSubscription();
   },
 
   getCleanHouseholdKey() {
-    const raw = (this.householdCode || 'HOGAR-2026').toLowerCase().trim();
+    const raw = (this.householdCode || '19125118').toLowerCase().trim();
     const clean = raw.replace(/[^a-z0-9]/g, '');
-    return clean || 'hogar2026';
+    return clean || '19125118';
   },
 
-  // Conexión Cloud-First
+  fetchCloudStateOnce() {
+    if (!this.dbRef) return;
+    this.dbRef.once('value').then((snapshot) => {
+      const cloudData = snapshot.val();
+      if (cloudData && cloudData.state) {
+        this.mergeIncomingState(cloudData.state);
+        Store.notify();
+      }
+    });
+  },
+
   connect() {
     if (!this.isInitialized || typeof firebase === 'undefined' || !firebase.database) {
       this.updateStatus('online');
@@ -201,32 +231,17 @@ const CloudSync = {
 
       try { this.dbRef.keepSynced(true); } catch(e) {}
 
-      // 1. Descargar estado existente o Inicializar si es un código nuevo
-      this.dbRef.once('value').then((snapshot) => {
-        const cloudData = snapshot.val();
-        if (cloudData && cloudData.state) {
-          Store.state = {
-            ...Store.state,
-            ...cloudData.state
-          };
-          try {
-            localStorage.setItem(Store.STORAGE_KEY, JSON.stringify(Store.state));
-          } catch (e) {}
-          Store.notify();
-        } else {
-          // Si el código es nuevo y no existía en Firebase, crearlo de inmediato
-          this.broadcastChange('ROOM_INITIALIZED', { createdBy: this.currentUserId });
-        }
-      });
+      // 1. Descarga inicial segura
+      this.fetchCloudStateOnce();
 
-      // 2. Escuchar token de la pareja para enviarle push en segundo plano
+      // 2. Escuchar suscripción de la pareja para enviarle push en segundo plano
       const partnerRole = this.currentUserId === 'p1' ? 'p2' : 'p1';
-      firebase.database().ref(`households/${houseKey}/fcm_tokens/${partnerRole}`).on('value', (snap) => {
+      firebase.database().ref(`households/${houseKey}/subscriptions/${partnerRole}`).on('value', (snap) => {
         const data = snap.val();
-        if (data && data.token) {
-          this.partnerFcmToken = data.token;
+        if (data && data.endpoint) {
+          this.partnerSubscription = data;
         } else {
-          this.partnerFcmToken = null;
+          this.partnerSubscription = null;
         }
         this.updateDiagnosticsUI();
       });
@@ -258,7 +273,49 @@ const CloudSync = {
     }
   },
 
-  // Publicar cambio y disparar Push a los servidores de Google
+  // Fusión inteligente Delta-Merging
+  mergeIncomingState(cloudState) {
+    if (!cloudState) return;
+
+    if (cloudState.notes && Array.isArray(cloudState.notes)) {
+      const localNotes = Store.state.notes || [];
+      const noteMap = new Map();
+      cloudState.notes.forEach(n => { if (n && n.id) noteMap.set(n.id, n); });
+      localNotes.forEach(n => { if (n && n.id) noteMap.set(n.id, n); });
+      Store.state.notes = Array.from(noteMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    }
+
+    if (cloudState.tasks && Array.isArray(cloudState.tasks)) {
+      const localTasks = Store.state.tasks || [];
+      const taskMap = new Map();
+      cloudState.tasks.forEach(t => { if (t && t.id) taskMap.set(t.id, t); });
+      localTasks.forEach(t => { if (t && t.id && !taskMap.has(t.id)) taskMap.set(t.id, t); });
+      Store.state.tasks = Array.from(taskMap.values());
+    }
+
+    if (cloudState.pantry && Array.isArray(cloudState.pantry)) {
+      const pantryMap = new Map();
+      cloudState.pantry.forEach(p => { if (p && p.id) pantryMap.set(p.id, p); });
+      (Store.state.pantry || []).forEach(p => { if (p && p.id && !pantryMap.has(p.id)) pantryMap.set(p.id, p); });
+      Store.state.pantry = Array.from(pantryMap.values());
+    }
+
+    if (cloudState.shoppingList && Array.isArray(cloudState.shoppingList)) {
+      const shopMap = new Map();
+      cloudState.shoppingList.forEach(s => { if (s && s.id) shopMap.set(s.id, s); });
+      (Store.state.shoppingList || []).forEach(s => { if (s && s.id && !shopMap.has(s.id)) shopMap.set(s.id, s); });
+      Store.state.shoppingList = Array.from(shopMap.values());
+    }
+
+    if (cloudState.profiles) Store.state.profiles = { ...Store.state.profiles, ...cloudState.profiles };
+    if (cloudState.bcv) Store.state.bcv = { ...Store.state.bcv, ...cloudState.bcv };
+    if (cloudState.budget) Store.state.budget = { ...Store.state.budget, ...cloudState.budget };
+
+    try {
+      localStorage.setItem(Store.STORAGE_KEY, JSON.stringify(Store.state));
+    } catch (e) {}
+  },
+
   broadcastChange(type, extraData = {}) {
     if (!this.dbRef) {
       this.connect();
@@ -285,7 +342,7 @@ const CloudSync = {
           this.updateStatus('online');
         });
 
-      // Si es una nota nueva, disparar orden de despertar Web Push a Google FCM
+      // Si es una nota o recordatorio nuevo, disparar Web Push a Vercel Serverless
       if (type === 'NEW_NOTE' && extraData && extraData.note) {
         const senderName = Store.state?.profiles?.[this.currentUserId]?.name || (this.currentUserId === 'p1' ? 'Ella' : 'Él');
         const noteText = extraData.note.text || 'Nuevo mensaje de amor ❤️';
@@ -294,23 +351,26 @@ const CloudSync = {
     }
   },
 
-  // Disparador de Notificación Push a los Servidores de Google (Despierta el celular dormido)
+  // Envía la orden a la función Vercel Serverless (/api/push) para despertar el teléfono bloqueado
   sendBackgroundPushTrigger(senderName, noteText) {
-    const houseKey = this.getCleanHouseholdKey();
     const partnerRole = this.currentUserId === 'p1' ? 'p2' : 'p1';
 
-    // Canal Web Push Directo a través de la pasarela de Google / Push Gateway
-    const pushPayload = {
-      title: `💌 Mensaje de ${senderName}`,
-      body: noteText,
-      icon: 'icons/icon.svg',
-      badge: 'icons/icon.svg',
-      partner: partnerRole,
-      room: houseKey,
-      timestamp: Date.now()
-    };
+    // 1. Disparo a través de la función de servidor en Vercel (/api/push)
+    fetch('/api/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        householdCode: this.householdCode,
+        targetUser: partnerRole,
+        title: `💌 Mensaje de ${senderName}`,
+        body: noteText,
+        icon: 'icons/icon.svg',
+        url: './index.html'
+      })
+    }).catch(() => {});
 
-    // Publicar en el puente Web Push de alta prioridad
+    // 2. Disparo redundante por puente de alta prioridad
+    const houseKey = this.getCleanHouseholdKey();
     fetch(`https://ntfy.sh/hogarduo_push_${houseKey}_${partnerRole}`, {
       method: 'POST',
       headers: {
@@ -322,36 +382,19 @@ const CloudSync = {
     }).catch(() => {});
   },
 
-  // Recibir y fusionar datos entrantes de la pareja
   handleIncomingData(payload) {
     if (!payload) return;
 
-    // Ignorar si el mensaje fue enviado por esta misma sesión
     if (payload.sessionId === this.sessionId) return;
 
-    // 1. Fusionar estado entrante
     if (payload.state) {
-      Store.state = {
-        ...Store.state,
-        ...payload.state
-      };
+      this.mergeIncomingState(payload.state);
     }
-
-    if (payload.type === 'NEW_NOTE' && payload.extra && payload.extra.note) {
-      if (!Store.state.notes) Store.state.notes = [];
-      if (!Store.state.notes.some(n => n.id === payload.extra.note.id)) {
-        Store.state.notes.unshift(payload.extra.note);
-      }
-    }
-
-    try {
-      localStorage.setItem(Store.STORAGE_KEY, JSON.stringify(Store.state));
-    } catch (e) {}
 
     Store.notify();
     this.updateStatus('online');
 
-    // 2. Notificación especial de Prueba enviada por la pareja
+    // 1. Prueba de Notificación Push
     if (payload.type === 'TEST_PUSH') {
       const senderName = payload.extra?.sender || (this.currentUserId === 'p1' ? 'Él' : 'Ella');
       const message = payload.extra?.message || '¡Prueba de Notificación de tu Pareja! ❤️';
@@ -365,7 +408,7 @@ const CloudSync = {
       return;
     }
 
-    // 3. Notificar si hay una nota nueva enviada desde el otro dispositivo
+    // 2. Notificación de Nota Nueva
     const incomingNote = payload.extra?.note || (Store.state?.notes && Store.state.notes[0]);
     if (incomingNote && incomingNote.id && incomingNote.id !== this.lastNotifiedNoteId) {
       this.lastNotifiedNoteId = incomingNote.id;
@@ -377,9 +420,7 @@ const CloudSync = {
       const noteType = incomingNote.type || 'love';
 
       if (typeof App !== 'undefined') {
-        // Banner flotante interactivo superior
         App.showInAppBanner(senderName, noteText, noteType);
-        // Notificación push del sistema
         App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
       }
       
@@ -393,12 +434,10 @@ const CloudSync = {
     }
   },
 
-  // Probar envío de notificación push al celular de la pareja
   testPushToPartner() {
     const senderName = Store.state?.profiles?.[this.currentUserId]?.name || (this.currentUserId === 'p1' ? 'Ella' : 'Él');
     const msg = '¡Prueba de Notificación Push a tu pantalla de bloqueo! ❤️';
     
-    // Disparo dual: por Firebase en vivo y por pasarela Web Push
     this.broadcastChange('TEST_PUSH', { sender: senderName, message: msg });
     this.sendBackgroundPushTrigger(senderName, msg);
     
@@ -407,7 +446,6 @@ const CloudSync = {
     }
   },
 
-  // Panel de Diagnóstico en Vivo
   updateDiagnosticsUI() {
     const permEl = document.getElementById('diag-perm-status');
     const swEl = document.getElementById('diag-sw-status');
@@ -416,18 +454,15 @@ const CloudSync = {
 
     const hasPerm = 'Notification' in window && Notification.permission === 'granted';
     const hasSW = 'serviceWorker' in navigator;
-    const hasFCM = !!this.myFcmToken || (hasPerm && hasSW);
-    const hasPartner = !!this.partnerFcmToken;
+    const hasPush = !!this.mySubscription || (hasPerm && hasSW);
+    const hasPartner = !!this.partnerSubscription;
 
     if (permEl) permEl.innerHTML = hasPerm ? '🟢 Concedido' : '🔴 No activado';
     if (swEl) swEl.innerHTML = hasSW ? '🟢 Activo' : '🔴 Inactivo';
-    if (fcmEl) fcmEl.innerHTML = hasFCM ? '🟢 Listo (Google FCM)' : '🟡 Pendiente';
+    if (fcmEl) fcmEl.innerHTML = hasPush ? '🟢 Listo (Web Push)' : '🟡 Pendiente';
     if (partnerEl) partnerEl.innerHTML = hasPartner ? '🟢 Celular Vinculado' : '🟡 Esperando conexión';
   },
 
-  // --------------------------------------------------------------------------
-  // CÓDIGO QR & ENLACE MÁGICO DE INVITACIÓN
-  // --------------------------------------------------------------------------
   getInviteLink() {
     const origin = window.location.origin + window.location.pathname;
     const partnerRole = this.currentUserId === 'p1' ? 'p2' : 'p1';
@@ -511,8 +546,8 @@ const CloudSync = {
     const codeIn = document.getElementById('household-code-input');
     const userSelect = document.getElementById('device-owner-select');
 
-    if (codeEl) codeEl.textContent = this.householdCode || 'HOGAR-2026';
-    if (codeIn) codeIn.value = this.householdCode || 'HOGAR-2026';
+    if (codeEl) codeEl.textContent = this.householdCode || '19125118';
+    if (codeIn) codeIn.value = this.householdCode || '19125118';
     if (userSelect) userSelect.value = this.currentUserId || 'p1';
   },
 

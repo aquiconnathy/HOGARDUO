@@ -1,0 +1,9 @@
+{
+  "name": "hogarduo",
+  "version": "1.0.0",
+  "description": "HogarDúo - App para parejas con sincronización en la nube y notificaciones push en segundo plano",
+  "main": "index.html",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}
