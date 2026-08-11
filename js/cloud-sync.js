@@ -33,6 +33,7 @@ const CloudSync = {
       this.householdCode = (localStorage.getItem('hogarduo_household_code') || '19125118').trim().toUpperCase();
       this.currentUserId = localStorage.getItem('hogarduo_user_id') || 'p1';
       this.currentUserEmail = localStorage.getItem('hogarduo_user_email') || null;
+      this.partnerEmail = localStorage.getItem('hogarduo_partner_email') || null;
       this.googleAccessToken = localStorage.getItem('hogarduo_g_token') || null;
       this.lastNotifiedNoteId = localStorage.getItem('hogarduo_last_notified_note') || null;
 
@@ -203,6 +204,27 @@ const CloudSync = {
     }
   },
 
+  savePartnerEmail(email) {
+    if (!email) return;
+    this.partnerEmail = email.trim();
+    try {
+      localStorage.setItem('hogarduo_partner_email', this.partnerEmail);
+    } catch(e) {}
+
+    const partnerRole = this.currentUserId === 'p1' ? 'p2' : 'p1';
+    if (Store.state && Store.state.profiles && Store.state.profiles[partnerRole]) {
+      Store.state.profiles[partnerRole].email = this.partnerEmail;
+      Store.save();
+    }
+
+    if (this.isInitialized && typeof firebase !== 'undefined' && firebase.database) {
+      const houseKey = this.getCleanHouseholdKey();
+      firebase.database().ref(`households/${houseKey}/emails/${partnerRole}`).set(this.partnerEmail);
+    }
+
+    this.updateDiagnosticsUI();
+  },
+
   updateAuthUI() {
     const emailEl = document.getElementById('google-user-email-display');
     const btnLogin = document.getElementById('btn-google-login');
@@ -214,8 +236,8 @@ const CloudSync = {
     }
     if (btnLogin) btnLogin.style.display = this.currentUserEmail ? 'none' : 'flex';
     if (btnLogout) btnLogout.style.display = this.currentUserEmail ? 'inline-block' : 'none';
-    if (partnerEmailIn && this.partnerEmail && !partnerEmailIn.value) {
-      partnerEmailIn.value = this.partnerEmail;
+    if (partnerEmailIn) {
+      partnerEmailIn.value = this.partnerEmail || '';
     }
   },
 
@@ -536,7 +558,10 @@ const CloudSync = {
 
   closeQRInviteModal() {
     const dialog = document.getElementById('modal-qr-invite');
-    if (dialog) dialog.close();
+    if (dialog) {
+      try { dialog.close(); } catch(e) {}
+      dialog.removeAttribute('open');
+    }
   },
 
   async shareInviteLink() {
@@ -608,7 +633,10 @@ const CloudSync = {
 
   closeSyncModal() {
     const dialog = document.getElementById('modal-cloud-sync');
-    if (dialog) dialog.close();
+    if (dialog) {
+      try { dialog.close(); } catch(e) {}
+      dialog.removeAttribute('open');
+    }
   },
 
   saveSyncSettings() {

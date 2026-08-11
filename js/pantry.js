@@ -180,7 +180,10 @@ const Pantry = {
 
   closeFormModal() {
     const dialog = document.getElementById('modal-pantry-form');
-    if (dialog) dialog.close();
+    if (dialog) {
+      try { dialog.close(); } catch(e) {}
+      dialog.removeAttribute('open');
+    }
   },
 
   handleFormSubmit(e) {

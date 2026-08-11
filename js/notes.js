@@ -243,7 +243,10 @@ const Notes = {
 
   closeFormModal() {
     const dialog = document.getElementById('modal-note-form');
-    if (dialog) dialog.close();
+    if (dialog) {
+      try { dialog.close(); } catch(e) {}
+      dialog.removeAttribute('open');
+    }
   },
 
   handleFormSubmit(e) {

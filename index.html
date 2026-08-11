@@ -495,7 +495,7 @@
 
             <div class="form-group" style="margin-top: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
               <label for="partner-email-input" style="font-size: 0.78rem;">📧 Correo de Gmail de tu Pareja (Opcional):</label>
-              <input type="email" id="partner-email-input" placeholder="pareja@gmail.com" style="font-size: 0.85rem;" onchange="CloudSync.saveSyncSettings()">
+              <input type="email" id="partner-email-input" placeholder="pareja@gmail.com" style="font-size: 0.85rem;" oninput="CloudSync.savePartnerEmail(this.value)" onchange="CloudSync.savePartnerEmail(this.value)">
               <small style="color: var(--text-muted); font-size: 0.72rem;">Google Calendar le enviará la invitación para que le suene la alarma en su celular.</small>
             </div>
           </div>

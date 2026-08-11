@@ -242,7 +242,10 @@ const Shopping = {
 
   closeFormModal() {
     const dialog = document.getElementById('modal-shopping-form');
-    if (dialog) dialog.close();
+    if (dialog) {
+      try { dialog.close(); } catch(e) {}
+      dialog.removeAttribute('open');
+    }
   },
 
   togglePriceCurrency(currency) {

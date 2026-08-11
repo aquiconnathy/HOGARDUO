@@ -212,7 +212,10 @@ const Tasks = {
 
   closeFormModal() {
     const dialog = document.getElementById('modal-task-form');
-    if (dialog) dialog.close();
+    if (dialog) {
+      try { dialog.close(); } catch(e) {}
+      dialog.removeAttribute('open');
+    }
   },
 
   handleFormSubmit(e) {
