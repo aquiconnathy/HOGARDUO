@@ -290,21 +290,22 @@
           </button>
         </div>
 
-        <!-- Tarjeta Principal de Cotización BCV -->
+        <!-- Tarjeta Principal de Cotización BCV y Paralelo -->
         <div class="bcv-hero-card glass-panel">
-          <div class="bcv-hero-badge">
-            <span class="flag-icon">🇻🇪</span>
-            <span>Tasa Oficial BCV</span>
+          <div style="display: flex; justify-content: center; gap: 0.4rem; margin-bottom: 0.65rem;">
+            <button class="pill-btn active" id="bcv-tab-oficial" onclick="BCV.switchRateSource('oficial')">🇻🇪 Oficial BCV</button>
+            <button class="pill-btn" id="bcv-tab-paralelo" onclick="BCV.switchRateSource('paralelo')">📈 Paralelo</button>
           </div>
+
           <div class="bcv-price-display">
             <span class="bcv-price-num" id="bcv-display-rate">--.--</span>
             <span class="bcv-price-currency">Bs / USD</span>
           </div>
           <p class="bcv-timestamp" id="bcv-timestamp">Última actualización: Consultando...</p>
           <div class="bcv-manual-override">
-            <label for="manual-rate-input">Ajuste manual (si estás sin internet):</label>
+            <label for="manual-rate-input">Ajuste manual personalizado:</label>
             <div class="input-with-action">
-              <input type="number" id="manual-rate-input" step="0.01" placeholder="Ej. 68.50">
+              <input type="number" id="manual-rate-input" step="0.01" placeholder="Ej. 757.54">
               <button class="btn btn-sm btn-primary" onclick="BCV.setManualRate()">Guardar</button>
             </div>
           </div>
