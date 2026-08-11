@@ -755,8 +755,40 @@ textarea {
 }
 
 /* --------------------------------------------------------------------------
-   5. MERCADO QUINCENAL & PRESUPUESTO DINÁMICO
+   5. MERCADO & PRESUPUESTO INPUTS (PREMIUM CAPSULES)
    -------------------------------------------------------------------------- */
+#budget-usd-input {
+  width: 95px !important;
+  text-align: center;
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  color: var(--primary) !important;
+  background: rgba(236, 72, 153, 0.12) !important;
+  border: 1.5px solid rgba(236, 72, 153, 0.35) !important;
+  border-radius: var(--radius-full) !important;
+  padding: 0.3rem 0.5rem !important;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.15);
+}
+
+#budget-usd-input:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.35) !important;
+}
+
+#calc-usd-input, #calc-bs-input {
+  font-size: 1.1rem !important;
+  font-weight: 700 !important;
+  text-align: center;
+  padding: 0.75rem !important;
+  border-radius: var(--radius-lg) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+#calc-usd-input:focus, #calc-bs-input:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.25) !important;
+}
 .budget-panel {
   margin-bottom: 0.85rem;
   border: 1px solid rgba(99, 102, 241, 0.3);

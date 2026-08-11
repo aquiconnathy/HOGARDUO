@@ -260,7 +260,16 @@
           <button class="btn btn-sm btn-primary" onclick="Pantry.openCreateModal()">+ Artículo</button>
         </div>
 
-        <div class="pantry-categories-grid" id="pantry-categories-container"></div>
+        <!-- Barra de Filtro de Categorías con Emojis -->
+        <div class="category-tabs-scroll" id="pantry-categories" style="display: flex; gap: 0.4rem; overflow-x: auto; margin-bottom: 0.85rem; scrollbar-width: none;">
+          <button class="cat-tab active" onclick="Pantry.setCategory('all', this)">🌟 Todos</button>
+          <button class="cat-tab" onclick="Pantry.setCategory('viveres', this)">🌾 Víveres</button>
+          <button class="cat-tab" onclick="Pantry.setCategory('proteinas', this)">🥩 Frescos</button>
+          <button class="cat-tab" onclick="Pantry.setCategory('limpieza', this)">🧹 Limpieza</button>
+          <button class="cat-tab" onclick="Pantry.setCategory('higiene', this)">🧴 Higiene</button>
+        </div>
+
+        <div class="pantry-grid" id="pantry-items-container"></div>
       </section>
 
       <!-- 5. VISTA MERCADO & PRESUPUESTO -->
@@ -273,33 +282,44 @@
           <button class="btn btn-sm btn-primary" onclick="Shopping.openCreateModal()">+ Producto</button>
         </div>
 
-        <div class="budget-tracker-card glass-panel">
-          <div class="budget-row">
+        <!-- Tarjeta de Presupuesto y Excedente -->
+        <div class="budget-card glass-panel" style="margin-bottom: 0.85rem; padding: 0.85rem;">
+          <div class="budget-header-row" style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <span class="budget-label">Total Estimado</span>
-              <div class="budget-val-usd" id="shopping-total-usd">$0.00</div>
-              <div class="budget-val-bs" id="shopping-total-bs">≈ 0.00 Bs</div>
+              <span class="budget-label" style="font-size: 0.75rem; color: var(--text-muted);">Presupuesto Asignado:</span>
+              <div style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.15rem;">
+                <span style="font-weight: 700;">$</span>
+                <input type="number" id="budget-usd-input" step="1" min="0" value="60" oninput="Shopping.updateBudgetUSD(this.value)" style="width: 80px; padding: 2px 6px; font-weight: 700;">
+              </div>
+              <span class="budget-bs-sub" id="budget-bs-equivalent" style="font-size: 0.72rem; color: var(--text-muted);">≈ 0.00 Bs</span>
             </div>
             <div style="text-align: right;">
-              <span class="budget-label">Presupuesto Tope</span>
-              <div style="display: flex; align-items: center; gap: 0.3rem;">
-                <span>$</span>
-                <input type="number" id="budget-limit-input" value="150" style="width: 75px; padding: 2px 6px; font-weight: 700;" onchange="Shopping.updateBudgetLimit(this.value)">
-              </div>
-              <div id="budget-progress-text" style="font-size: 0.72rem; margin-top: 0.2rem;">0% del presupuesto</div>
+              <span class="budget-label" style="font-size: 0.75rem; color: var(--text-muted);">Total en Carrito:</span>
+              <div class="total-spent-usd" id="total-spent-usd" style="font-size: 1.3rem; font-weight: 800; color: var(--primary);">$0.00</div>
+              <span class="total-spent-bs" id="total-spent-bs" style="font-size: 0.72rem; color: var(--text-muted);">0.00 Bs</span>
             </div>
           </div>
-          <div class="progress-bar-container" style="margin-top: 0.5rem;">
+
+          <!-- Alerta de Excedente (Si se pasa del presupuesto) -->
+          <div class="surplus-metric-box glass-panel hidden" id="surplus-metric-box" style="margin-top: 0.5rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); padding: 0.5rem; border-radius: var(--radius-md);">
+            <span style="color: var(--danger); font-weight: 700; font-size: 0.82rem;">🚨 ¡Excedente de Presupuesto!</span>
+            <div style="display: flex; justify-content: space-between; margin-top: 0.25rem;">
+              <span id="surplus-usd" style="color: var(--danger); font-weight: 800;">+$0.00 USD</span>
+              <span id="surplus-bs" style="color: var(--danger); font-size: 0.75rem;">+0.00 Bs</span>
+            </div>
+          </div>
+
+          <div class="progress-bar-container" style="margin-top: 0.65rem;">
             <div class="progress-bar-fill" id="budget-progress-bar" style="width: 0%;"></div>
           </div>
         </div>
 
-        <div class="shopping-actions-row">
+        <div class="shopping-actions-row" style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
           <button class="btn btn-xs btn-outline" onclick="Shopping.clearChecked()">🧹 Limpiar Comprados</button>
-          <button class="btn btn-xs btn-primary" onclick="Shopping.openShareModal()">💬 Enviar Lista por WhatsApp</button>
+          <button class="btn btn-xs btn-primary" onclick="Shopping.openShareModal()">💬 Enviar por WhatsApp</button>
         </div>
 
-        <div class="shopping-list-container" id="shopping-list-container"></div>
+        <div class="shopping-items-list" id="shopping-items-container"></div>
       </section>
 
       <!-- 6. VISTA CALCULADORA BCV -->
