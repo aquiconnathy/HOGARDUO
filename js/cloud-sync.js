@@ -1,6 +1,6 @@
 /**
- * CloudSync - Google Firebase Realtime Engine + Google Auth + Google Calendar Synchronization
- * Direct Google Calendar hardware-level alarms and cross-device synchronization for couples.
+ * CloudSync - Google Firebase Auth & Realtime Engine for Couples
+ * Multi-user Email/Password & Google 1-Tap Auth, Independent Profiles, Photos & Communication.
  */
 const CloudSync = {
   firebaseConfig: {
@@ -14,14 +14,12 @@ const CloudSync = {
     measurementId: "G-1E7PXG23FV"
   },
 
-  vapidKey: "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuYkr3qBUYIhbQFLXYp5Nksh8U",
-
   householdCode: '19125118',
   sessionId: null,
   currentUserId: 'p1', // 'p1' (Ella) o 'p2' (Él)
+  currentUser: null,
   currentUserEmail: null,
   partnerEmail: null,
-  googleAccessToken: null,
   dbRef: null,
   isConnected: false,
   isInitialized: false,
@@ -34,27 +32,18 @@ const CloudSync = {
       this.currentUserId = localStorage.getItem('hogarduo_user_id') || 'p1';
       this.currentUserEmail = localStorage.getItem('hogarduo_user_email') || null;
       this.partnerEmail = localStorage.getItem('hogarduo_partner_email') || null;
-      this.googleAccessToken = localStorage.getItem('hogarduo_g_token') || null;
       this.lastNotifiedNoteId = localStorage.getItem('hogarduo_last_notified_note') || null;
 
-      // 1. Detectar auto-vinculación por Código QR
-      this.checkUrlInviteParams();
-
-      // 2. Listeners de auto-reconexión al despertar el celular
+      // 1. Escuchar reconexiones al despertar el teléfono
       this.setupReconnectionListeners();
 
-      this.updateCloudUI();
+      // 2. Inicializar Firebase
       this.initFirebase();
-      setTimeout(() => {
-        this.updateDiagnosticsUI();
-        this.updateAuthUI();
-      }, 300);
     } catch (e) {
       console.warn('CloudSync init error:', e);
     }
   },
 
-  // Auto-reconexión instantánea al desbloquear o enfocar el celular
   setupReconnectionListeners() {
     const handleWakeup = () => {
       if (typeof firebase !== 'undefined' && firebase.database) {
@@ -72,35 +61,6 @@ const CloudSync = {
     window.addEventListener('online', handleWakeup);
   },
 
-  checkUrlInviteParams() {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const inviteCode = params.get('code') || params.get('hogar');
-      const inviteRole = params.get('role');
-
-      if (inviteCode) {
-        this.householdCode = inviteCode.trim().toUpperCase();
-        localStorage.setItem('hogarduo_household_code', this.householdCode);
-
-        if (inviteRole && (inviteRole === 'p1' || inviteRole === 'p2')) {
-          this.currentUserId = inviteRole;
-          localStorage.setItem('hogarduo_user_id', inviteRole);
-        }
-
-        window.history.replaceState({}, document.title, window.location.pathname);
-
-        setTimeout(() => {
-          if (typeof App !== 'undefined') {
-            const roleName = this.currentUserId === 'p1' ? 'Persona 1 (Ella)' : 'Persona 2 (Él)';
-            App.showToast(`🎉 ¡Vinculado al Hogar "${this.householdCode}" como ${roleName}!`, 'success');
-            App.triggerConfetti();
-            App.updateProfileUI();
-          }
-        }, 600);
-      }
-    } catch (e) {}
-  },
-
   initFirebase() {
     if (typeof firebase === 'undefined') {
       this.updateStatus('online');
@@ -113,235 +73,284 @@ const CloudSync = {
       }
 
       this.isInitialized = true;
-      this.updateStatus('connecting');
 
-      // Escuchar estado de autenticación de Firebase
+      // Activar persistencia permanente de sesión
       if (firebase.auth) {
+        firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+
         firebase.auth().onAuthStateChanged((user) => {
           if (user) {
+            this.currentUser = user;
             this.currentUserEmail = user.email;
-            try { localStorage.setItem('hogarduo_user_email', user.email); } catch(e) {}
-            this.updateAuthUI();
-            this.saveUserEmailToHousehold();
+            localStorage.setItem('hogarduo_user_email', user.email);
+            
+            // Cargar datos del perfil del usuario
+            this.loadUserHouseholdProfile(user.uid);
+            this.showMainApp();
+            this.connect();
           } else {
-            // Iniciar sesión anónima si no hay usuario de Google activo
-            firebase.auth().signInAnonymously().catch(() => {});
+            this.currentUser = null;
+            this.currentUserEmail = null;
+            this.showAuthGateway();
           }
         });
       }
-
-      this.connect();
     } catch (e) {
       console.warn('Firebase init warning:', e);
-      this.updateStatus('online');
+      this.showMainApp();
     }
   },
 
-  // Iniciar Sesión con Google (con permisos para Google Calendar)
-  async signInWithGoogle() {
-    if (typeof firebase === 'undefined' || !firebase.auth) {
-      if (typeof App !== 'undefined') App.showToast('Firebase Auth no disponible', 'warning');
+  showAuthGateway() {
+    const gateway = document.getElementById('auth-gateway-screen');
+    const mainApp = document.getElementById('main-app-container');
+    if (gateway) gateway.style.display = 'flex';
+    if (mainApp) mainApp.style.display = 'none';
+  },
+
+  showMainApp() {
+    const gateway = document.getElementById('auth-gateway-screen');
+    const mainApp = document.getElementById('main-app-container');
+    if (gateway) gateway.style.display = 'none';
+    if (mainApp) mainApp.style.display = 'block';
+
+    if (typeof App !== 'undefined') {
+      App.updateProfileUI();
+      App.renderAll();
+    }
+    if (typeof Personal !== 'undefined') {
+      Personal.init();
+    }
+    this.updateCloudUI();
+  },
+
+  // ==========================================
+  // AUTENTICACIÓN Y REGISTRO
+  // ==========================================
+
+  // 1. Crear Nuevo Hogar + Registro
+  async registerNewHousehold(email, password, name, phone, role, householdCode, photoData = null) {
+    if (!email || !password || !name) {
+      if (typeof App !== 'undefined') App.showToast('Por favor completa todos los campos requeridos', 'warning');
       return;
     }
 
+    try {
+      const userCredential = await firebase.auth().createUserWithEmailAndPassword(email.trim(), password);
+      const user = userCredential.user;
+
+      const cleanCode = (householdCode || 'HOGAR-' + Math.floor(1000 + Math.random() * 9000)).trim().toUpperCase();
+      this.householdCode = cleanCode;
+      this.currentUserId = role || 'p1';
+
+      localStorage.setItem('hogarduo_household_code', this.householdCode);
+      localStorage.setItem('hogarduo_user_id', this.currentUserId);
+
+      // Guardar perfil en Store
+      if (Store.state?.profiles?.[this.currentUserId]) {
+        Store.state.profiles[this.currentUserId].name = name.trim();
+        Store.state.profiles[this.currentUserId].email = email.trim();
+        if (phone) Store.state.profiles[this.currentUserId].phone = phone.trim();
+        if (photoData) Store.state.profiles[this.currentUserId].photo = photoData;
+        Store.save();
+      }
+
+      // Guardar en Firebase
+      const houseKey = this.getCleanHouseholdKey();
+      await firebase.database().ref(`users/${user.uid}`).set({
+        email: email.trim(),
+        householdCode: this.householdCode,
+        role: this.currentUserId,
+        name: name.trim(),
+        phone: phone || '',
+        photo: photoData || ''
+      });
+
+      this.broadcastChange('PROFILE_REGISTERED', Store.state);
+
+      if (typeof App !== 'undefined') {
+        App.showToast(`🎉 ¡Bienvenida/o a HogarDúo, ${name}! Hogar: ${this.householdCode}`, 'success');
+        App.triggerConfetti();
+      }
+    } catch (err) {
+      console.error('Register error:', err);
+      if (typeof App !== 'undefined') App.showToast(`Error al registrarse: ${err.message}`, 'warning');
+    }
+  },
+
+  // 2. Unirme al Hogar de mi Pareja
+  async joinHousehold(email, password, name, phone, role, householdCode, photoData = null) {
+    if (!email || !password || !name || !householdCode) {
+      if (typeof App !== 'undefined') App.showToast('Completa todos los datos y el código del hogar', 'warning');
+      return;
+    }
+
+    try {
+      const userCredential = await firebase.auth().createUserWithEmailAndPassword(email.trim(), password);
+      const user = userCredential.user;
+
+      this.householdCode = householdCode.trim().toUpperCase();
+      this.currentUserId = role || 'p2';
+
+      localStorage.setItem('hogarduo_household_code', this.householdCode);
+      localStorage.setItem('hogarduo_user_id', this.currentUserId);
+
+      if (Store.state?.profiles?.[this.currentUserId]) {
+        Store.state.profiles[this.currentUserId].name = name.trim();
+        Store.state.profiles[this.currentUserId].email = email.trim();
+        if (phone) Store.state.profiles[this.currentUserId].phone = phone.trim();
+        if (photoData) Store.state.profiles[this.currentUserId].photo = photoData;
+        Store.save();
+      }
+
+      await firebase.database().ref(`users/${user.uid}`).set({
+        email: email.trim(),
+        householdCode: this.householdCode,
+        role: this.currentUserId,
+        name: name.trim(),
+        phone: phone || '',
+        photo: photoData || ''
+      });
+
+      this.broadcastChange('PARTNER_JOINED', Store.state);
+
+      if (typeof App !== 'undefined') {
+        App.showToast(`💑 ¡Te has unido al Hogar "${this.householdCode}"!`, 'success');
+        App.triggerConfetti();
+      }
+    } catch (err) {
+      console.error('Join error:', err);
+      if (typeof App !== 'undefined') App.showToast(`Error: ${err.message}`, 'warning');
+    }
+  },
+
+  // 3. Iniciar Sesión con Correo y Contraseña
+  async signInWithEmail(email, password) {
+    if (!email || !password) {
+      if (typeof App !== 'undefined') App.showToast('Ingresa tu correo y contraseña', 'warning');
+      return;
+    }
+
+    try {
+      await firebase.auth().signInWithEmailAndPassword(email.trim(), password);
+      if (typeof App !== 'undefined') App.showToast('¡Sesión iniciada con éxito! 🚀', 'success');
+    } catch (err) {
+      console.error('Login error:', err);
+      if (typeof App !== 'undefined') App.showToast(`Error de acceso: ${err.message}`, 'warning');
+    }
+  },
+
+  // 4. Iniciar Sesión con Google (1-Tap)
+  async signInWithGoogle() {
+    if (typeof firebase === 'undefined' || !firebase.auth) return;
     const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/calendar.events');
 
     try {
       const result = await firebase.auth().signInWithPopup(provider);
       const user = result.user;
-      const credential = result.credential;
-
-      if (credential && credential.accessToken) {
-        this.googleAccessToken = credential.accessToken;
-        try { localStorage.setItem('hogarduo_g_token', credential.accessToken); } catch(e) {}
+      
+      if (typeof App !== 'undefined') {
+        App.showToast(`✅ Conectado con Google: ${user.email}`, 'success');
+        App.triggerConfetti();
       }
+    } catch (err) {
+      console.warn('Google login error:', err);
+      if (typeof App !== 'undefined') App.showToast(`Aviso: ${err.message}`, 'warning');
+    }
+  },
 
-      this.currentUserEmail = user.email;
-      try { localStorage.setItem('hogarduo_user_email', user.email); } catch(e) {}
+  // 5. Cerrar Sesión
+  async signOut() {
+    try {
+      if (typeof firebase !== 'undefined' && firebase.auth) {
+        await firebase.auth().signOut();
+      }
+      this.currentUser = null;
+      this.currentUserEmail = null;
+      localStorage.removeItem('hogarduo_user_email');
+      this.showAuthGateway();
+      if (typeof App !== 'undefined') App.showToast('Sesión cerrada correctamente 🔒', 'info');
+    } catch (e) {}
+  },
 
-      // Actualizar perfil local
-      if (Store.state && Store.state.profiles) {
-        const profile = Store.state.profiles[this.currentUserId];
-        if (profile) {
-          profile.email = user.email;
-          if (user.displayName) profile.name = user.displayName.split(' ')[0];
+  // Cargar perfil asignado en el Hogar
+  async loadUserHouseholdProfile(uid) {
+    try {
+      const snap = await firebase.database().ref(`users/${uid}`).once('value');
+      const data = snap.val();
+      if (data) {
+        if (data.householdCode) {
+          this.householdCode = data.householdCode;
+          localStorage.setItem('hogarduo_household_code', this.householdCode);
+        }
+        if (data.role) {
+          this.currentUserId = data.role;
+          localStorage.setItem('hogarduo_user_id', this.currentUserId);
+        }
+        if (Store.state?.profiles?.[this.currentUserId]) {
+          if (data.name) Store.state.profiles[this.currentUserId].name = data.name;
+          if (data.phone) Store.state.profiles[this.currentUserId].phone = data.phone;
+          if (data.photo) Store.state.profiles[this.currentUserId].photo = data.photo;
+          if (data.email) Store.state.profiles[this.currentUserId].email = data.email;
           Store.save();
         }
       }
-
-      this.updateAuthUI();
-      this.saveUserEmailToHousehold();
-      
-      if (typeof App !== 'undefined') {
-        App.showToast(`✅ Conectado con Google: ${user.email} 📅`, 'success');
-        App.triggerConfetti();
-        App.updateProfileUI();
-      }
-    } catch (err) {
-      console.warn('Google sign in error:', err);
-      if (typeof App !== 'undefined') {
-        App.showToast(`Aviso: ${err.message}`, 'warning');
-      }
-    }
-  },
-
-  // Cerrar Sesión de Google
-  async signOutGoogle() {
-    if (typeof firebase !== 'undefined' && firebase.auth) {
-      await firebase.auth().signOut();
-    }
-    this.currentUserEmail = null;
-    this.googleAccessToken = null;
-    try {
-      localStorage.removeItem('hogarduo_g_token');
-      localStorage.removeItem('hogarduo_user_email');
-    } catch(e) {}
-    this.updateAuthUI();
-    if (typeof App !== 'undefined') {
-      App.showToast('Sesión de Google cerrada', 'info');
-      App.updateProfileUI();
-    }
-  },
-
-  savePartnerEmail(email) {
-    if (!email) return;
-    this.partnerEmail = email.trim();
-    try {
-      localStorage.setItem('hogarduo_partner_email', this.partnerEmail);
-    } catch(e) {}
-
-    const partnerRole = this.currentUserId === 'p1' ? 'p2' : 'p1';
-    if (Store.state && Store.state.profiles && Store.state.profiles[partnerRole]) {
-      Store.state.profiles[partnerRole].email = this.partnerEmail;
-      Store.save();
-    }
-
-    if (this.isInitialized && typeof firebase !== 'undefined' && firebase.database) {
-      const houseKey = this.getCleanHouseholdKey();
-      firebase.database().ref(`households/${houseKey}/emails/${partnerRole}`).set(this.partnerEmail);
-    }
-
-    this.updateDiagnosticsUI();
-  },
-
-  updateAuthUI() {
-    const emailEl = document.getElementById('google-user-email-display');
-    const btnLogin = document.getElementById('btn-google-login');
-    const btnLogout = document.getElementById('btn-google-logout');
-    const partnerEmailIn = document.getElementById('partner-email-input');
-
-    if (emailEl) {
-      emailEl.textContent = this.currentUserEmail ? `🟢 Conectado: ${this.currentUserEmail}` : '⚪ No conectado';
-    }
-    if (btnLogin) btnLogin.style.display = this.currentUserEmail ? 'none' : 'flex';
-    if (btnLogout) btnLogout.style.display = this.currentUserEmail ? 'inline-block' : 'none';
-    if (partnerEmailIn) {
-      partnerEmailIn.value = this.partnerEmail || '';
-    }
-  },
-
-  saveUserEmailToHousehold() {
-    if (!this.currentUserEmail || !this.isInitialized || !firebase.database) return;
-    try {
-      const houseKey = this.getCleanHouseholdKey();
-      firebase.database().ref(`households/${houseKey}/emails/${this.currentUserId}`).set(this.currentUserEmail);
     } catch (e) {}
   },
 
-  // Programar Alarma en Google Calendar (Ambos Celulares)
-  async createGoogleCalendarEvent(title, description, reminderTimeISO) {
-    if (!reminderTimeISO) return null;
+  // Sincronizar datos personales privados
+  syncPersonalData(personalData) {
+    if (!this.currentUser || !firebase.database) return;
+    try {
+      firebase.database().ref(`users/${this.currentUser.uid}/personal_state`).set(personalData);
+    } catch (e) {}
+  },
 
-    const startDate = new Date(reminderTimeISO);
-    const endDate = new Date(startDate.getTime() + 30 * 60000); // 30 min de duración
+  // Subir Foto de Perfil (Base64 compacta)
+  handlePhotoUpload(file, role) {
+    return new Promise((resolve, reject) => {
+      if (!file) return reject('No file');
 
-    const partnerEmail = this.partnerEmail || (document.getElementById('partner-email-input')?.value.trim()) || '';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Redimensionar a 200x200 para máxima velocidad y nitidez
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = 200;
+          canvas.height = 200;
+          
+          ctx.drawImage(img, 0, 0, 200, 200);
+          const base64Photo = canvas.toDataURL('image/jpeg', 0.85);
 
-    // 1. Si tenemos el token de Google Calendar API, crear directamente en la nube
-    if (this.googleAccessToken) {
-      try {
-        const attendees = [];
-        if (partnerEmail && partnerEmail.includes('@')) {
-          attendees.push({ email: partnerEmail });
-        }
-
-        const eventBody = {
-          summary: `💑 HogarDúo: ${title}`,
-          description: `${description || 'Recordatorio de HogarDúo'}\n\nCreado desde la app del hogar 🏡`,
-          start: { dateTime: startDate.toISOString() },
-          end: { dateTime: endDate.toISOString() },
-          attendees: attendees,
-          reminders: {
-            useDefault: false,
-            overrides: [
-              { method: 'popup', minutes: 0 },
-              { method: 'popup', minutes: 10 }
-            ]
+          const targetRole = role || this.currentUserId;
+          if (Store.state?.profiles?.[targetRole]) {
+            Store.state.profiles[targetRole].photo = base64Photo;
+            Store.save();
           }
-        };
 
-        const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.googleAccessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(eventBody)
-        });
+          if (this.currentUser && firebase.database) {
+            firebase.database().ref(`users/${this.currentUser.uid}/photo`).set(base64Photo);
+            const houseKey = this.getCleanHouseholdKey();
+            firebase.database().ref(`households/${houseKey}/profiles/${targetRole}/photo`).set(base64Photo);
+          }
 
-        if (res.ok) {
           if (typeof App !== 'undefined') {
-            App.showToast(`📅 ¡Alarma guardada en Google Calendar para ambos!`, 'success');
+            App.updateProfileUI();
+            App.showToast('¡Foto de perfil actualizada! 📸', 'success');
           }
-          return true;
-        }
-      } catch (e) {
-        console.warn('Direct Calendar API failed, falling back to Web Intent:', e);
-      }
-    }
-
-    // 2. Enlace Directo de Google Calendar Web (1-Tap Fallback sin configuraciones)
-    const formatGTime = (d) => d.toISOString().replace(/-|:|\.\d+/g, '');
-    const startG = formatGTime(startDate);
-    const endG = formatGTime(endDate);
-
-    let intentUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('💑 HogarDúo: ' + title)}&dates=${startG}/${endG}&details=${encodeURIComponent(description || 'Recordatorio de HogarDúo')}`;
-    
-    if (partnerEmail && partnerEmail.includes('@')) {
-      intentUrl += `&add=${encodeURIComponent(partnerEmail)}`;
-    }
-
-    return intentUrl;
-  },
-
-  setHouseholdCode(code) {
-    if (!code) return;
-    this.householdCode = code.trim().toUpperCase();
-    try {
-      localStorage.setItem('hogarduo_household_code', this.householdCode);
-    } catch (e) {}
-    this.updateCloudUI();
-    this.connect();
-  },
-
-  setCurrentUser(userId) {
-    this.currentUserId = userId;
-    try {
-      localStorage.setItem('hogarduo_user_id', userId);
-    } catch (e) {}
-    this.updateCloudUI();
-    if (typeof App !== 'undefined') {
-      App.updateProfileUI();
-      const p = Store.state?.profiles?.[userId];
-      App.showToast(`Dispositivo configurado como: ${p?.name || userId} 📱`, 'success');
-    }
+          resolve(base64Photo);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
   },
 
   getCleanHouseholdKey() {
     const raw = (this.householdCode || '19125118').toLowerCase().trim();
-    const clean = raw.replace(/[^a-z0-9]/g, '');
-    return clean || '19125118';
+    return raw.replace(/[^a-z0-9]/g, '') || '19125118';
   },
 
   fetchCloudStateOnce() {
@@ -363,43 +372,33 @@ const CloudSync = {
 
     try {
       const houseKey = this.getCleanHouseholdKey();
-      
-      if (this.dbRef) {
-        this.dbRef.off();
-      }
+      if (this.dbRef) this.dbRef.off();
 
       this.dbRef = firebase.database().ref(`households/${houseKey}`);
-
       try { this.dbRef.keepSynced(true); } catch(e) {}
 
-      // 1. Descarga inicial segura
       this.fetchCloudStateOnce();
 
-      // 2. Escuchar correo de la pareja
-      const partnerRole = this.currentUserId === 'p1' ? 'p2' : 'p1';
-      firebase.database().ref(`households/${houseKey}/emails/${partnerRole}`).on('value', (snap) => {
-        this.partnerEmail = snap.val() || null;
-        this.updateAuthUI();
-      });
-
-      // 3. Estado de conexión con Google
-      const connectedRef = firebase.database().ref('.info/connected');
-      connectedRef.on('value', (snap) => {
-        if (snap.val() === true) {
-          this.isConnected = true;
-          this.updateStatus('online');
-        } else {
-          this.isConnected = false;
-          this.updateStatus('connecting');
+      // Escuchar cambios de perfiles en vivo (fotos, teléfonos, nombres)
+      this.dbRef.child('profiles').on('value', (snap) => {
+        const profiles = snap.val();
+        if (profiles && Store.state) {
+          Store.state.profiles = { ...Store.state.profiles, ...profiles };
+          Store.save();
+          if (typeof App !== 'undefined') App.updateProfileUI();
         }
       });
 
-      // 4. Escuchar cambios en vivo emitidos en el hogar
+      // Escuchar conexión
+      firebase.database().ref('.info/connected').on('value', (snap) => {
+        this.isConnected = (snap.val() === true);
+        this.updateStatus(this.isConnected ? 'online' : 'connecting');
+      });
+
+      // Escuchar cambios en vivo del hogar
       this.dbRef.on('value', (snapshot) => {
         const payload = snapshot.val();
-        if (payload) {
-          this.handleIncomingData(payload);
-        }
+        if (payload) this.handleIncomingData(payload);
       });
 
       this.updateStatus('online');
@@ -452,9 +451,7 @@ const CloudSync = {
   },
 
   broadcastChange(type, extraData = {}) {
-    if (!this.dbRef) {
-      this.connect();
-    }
+    if (!this.dbRef) this.connect();
 
     const payload = {
       room: this.householdCode,
@@ -469,19 +466,13 @@ const CloudSync = {
     if (this.dbRef) {
       this.updateStatus('syncing');
       this.dbRef.set(payload)
-        .then(() => {
-          setTimeout(() => this.updateStatus('online'), 250);
-        })
-        .catch(err => {
-          console.warn('Firebase write error:', err);
-          this.updateStatus('online');
-        });
+        .then(() => setTimeout(() => this.updateStatus('online'), 250))
+        .catch(() => this.updateStatus('online'));
     }
   },
 
   handleIncomingData(payload) {
     if (!payload) return;
-
     if (payload.sessionId === this.sessionId) return;
 
     if (payload.state) {
@@ -491,104 +482,28 @@ const CloudSync = {
     Store.notify();
     this.updateStatus('online');
 
-    // Notificación de Nota / Recordatorio en Vivo
+    // Notificación en vivo si la pareja envió una nota
     const incomingNote = payload.extra?.note || (Store.state?.notes && Store.state.notes[0]);
     if (incomingNote && incomingNote.id && incomingNote.id !== this.lastNotifiedNoteId) {
-      this.lastNotifiedNoteId = incomingNote.id;
-      try { localStorage.setItem('hogarduo_last_notified_note', incomingNote.id); } catch(e) {}
-
-      const authorKey = incomingNote.author || payload.senderUser || (this.currentUserId === 'p1' ? 'p2' : 'p1');
-      const senderName = Store.state?.profiles?.[authorKey]?.name || (authorKey === 'p1' ? 'Ella' : 'Él');
-      const noteText = incomingNote.text || 'Nuevo mensaje de amor ❤️';
-      const noteType = incomingNote.type || 'love';
-
-      if (typeof App !== 'undefined') {
-        App.showInAppBanner(senderName, noteText, noteType);
-        App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
-      }
+      const authorKey = incomingNote.author || payload.senderUser;
       
-      if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-      return;
-    }
+      // Solo notificar si la nota fue escrita por la pareja (no por mí)
+      if (authorKey !== this.currentUserId) {
+        this.lastNotifiedNoteId = incomingNote.id;
+        try { localStorage.setItem('hogarduo_last_notified_note', incomingNote.id); } catch(e) {}
 
-    if (typeof App !== 'undefined') {
-      App.showToast('Datos actualizados de tu pareja 🔄', 'info');
-    }
-  },
+        const senderName = Store.state?.profiles?.[authorKey]?.name || 'Tu pareja';
+        const noteText = incomingNote.text || 'Nuevo mensaje de amor ❤️';
+        const noteType = incomingNote.type || 'love';
 
-  updateDiagnosticsUI() {
-    const permEl = document.getElementById('diag-perm-status');
-    const swEl = document.getElementById('diag-sw-status');
-    const fcmEl = document.getElementById('diag-fcm-status');
-    const partnerEl = document.getElementById('diag-partner-status');
-
-    const hasPerm = 'Notification' in window && Notification.permission === 'granted';
-    const hasSW = 'serviceWorker' in navigator;
-    const hasAuth = !!this.currentUserEmail;
-    const hasPartner = !!this.partnerEmail;
-
-    if (permEl) permEl.innerHTML = hasPerm ? '🟢 Concedido' : '🔴 No activado';
-    if (swEl) swEl.innerHTML = hasSW ? '🟢 Activo' : '🔴 Inactivo';
-    if (fcmEl) fcmEl.innerHTML = hasAuth ? '🟢 Conectado con Google' : '🟡 Pendiente';
-    if (partnerEl) partnerEl.innerHTML = hasPartner ? '🟢 Pareja Vinculada' : '🟡 Esperando conexión';
-  },
-
-  getInviteLink() {
-    const origin = window.location.origin + window.location.pathname;
-    const partnerRole = this.currentUserId === 'p1' ? 'p2' : 'p1';
-    return `${origin}?code=${encodeURIComponent(this.householdCode)}&role=${partnerRole}`;
-  },
-
-  openQRInviteModal() {
-    const dialog = document.getElementById('modal-qr-invite');
-    const qrImg = document.getElementById('qr-invite-img');
-    const qrLabel = document.getElementById('qr-code-label');
-
-    const inviteUrl = this.getInviteLink();
-
-    if (qrLabel) qrLabel.textContent = this.householdCode;
-    
-    if (qrImg) {
-      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(inviteUrl)}`;
-    }
-
-    if (dialog) dialog.showModal();
-  },
-
-  closeQRInviteModal() {
-    const dialog = document.getElementById('modal-qr-invite');
-    if (dialog) {
-      try { dialog.close(); } catch(e) {}
-      dialog.removeAttribute('open');
-    }
-  },
-
-  async shareInviteLink() {
-    const inviteUrl = this.getInviteLink();
-    const shareData = {
-      title: '💑 HogarDúo - Nuestro Hogar Conectado',
-      text: `¡Hola amor! Entra a nuestra app del hogar sincronizada: ${this.householdCode}`,
-      url: inviteUrl
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (e) {}
-    } else {
-      this.copyInviteLink();
-    }
-  },
-
-  copyInviteLink() {
-    const inviteUrl = this.getInviteLink();
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(inviteUrl).then(() => {
-        if (typeof App !== 'undefined') App.showToast('¡Enlace de invitación copiado! 📋 Envíalo a tu pareja', 'success');
-      });
-    } else {
-      prompt('Copia este enlace para enviarlo a tu pareja:', inviteUrl);
+        if (typeof App !== 'undefined') {
+          App.showInAppBanner(senderName, noteText, noteType);
+          App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
+        }
+        
+        if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+      }
     }
   },
 
@@ -601,67 +516,19 @@ const CloudSync = {
 
     if (status === 'syncing') {
       dot.style.background = 'var(--warning)';
-      dot.style.boxShadow = '0 0 6px var(--warning)';
       text.textContent = 'Sincronizando';
     } else if (status === 'connecting') {
       dot.style.background = 'var(--accent)';
-      dot.style.boxShadow = '0 0 6px var(--accent)';
       text.textContent = 'Conectando';
     } else {
       dot.style.background = 'var(--success)';
-      dot.style.boxShadow = '0 0 6px var(--success)';
       text.textContent = 'En vivo';
-      badge.title = `Conectado a Firebase (${this.householdCode})`;
+      badge.title = `Conectado al Hogar (${this.householdCode})`;
     }
   },
 
   updateCloudUI() {
     const codeEl = document.getElementById('current-household-code-display');
-    const codeIn = document.getElementById('household-code-input');
-    const userSelect = document.getElementById('device-owner-select');
-
     if (codeEl) codeEl.textContent = this.householdCode || '19125118';
-    if (codeIn) codeIn.value = this.householdCode || '19125118';
-    if (userSelect) userSelect.value = this.currentUserId || 'p1';
-  },
-
-  openSyncModal() {
-    const dialog = document.getElementById('modal-cloud-sync');
-    this.updateCloudUI();
-    if (dialog) dialog.showModal();
-  },
-
-  closeSyncModal() {
-    const dialog = document.getElementById('modal-cloud-sync');
-    if (dialog) {
-      try { dialog.close(); } catch(e) {}
-      dialog.removeAttribute('open');
-    }
-  },
-
-  saveSyncSettings() {
-    const codeInput = document.getElementById('household-code-input');
-    const userSelect = document.getElementById('device-owner-select');
-    const partnerEmailIn = document.getElementById('partner-email-input');
-
-    const code = codeInput ? codeInput.value.trim() : '';
-    const user = userSelect ? userSelect.value : 'p1';
-
-    if (code) {
-      this.setHouseholdCode(code);
-    }
-    if (user) {
-      this.setCurrentUser(user);
-    }
-    if (partnerEmailIn && partnerEmailIn.value.trim()) {
-      this.partnerEmail = partnerEmailIn.value.trim();
-    }
-
-    this.broadcastChange('ROOM_UPDATED', Store.state);
-
-    this.closeSyncModal();
-    if (typeof App !== 'undefined' && App.showToast) {
-      App.showToast(`✅ Hogar conectado a Firebase: ${this.householdCode}`, 'success');
-    }
   }
 };

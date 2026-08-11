@@ -1,82 +1,29 @@
 /**
- * Notes - Love Notes & Reminders Engine for Couples
- * Clean, fast, and simple note & reminder creation with date/time scheduling.
+ * Notes - Love Notes & Directed Reminders Engine for Couples
+ * Directed messages (you only see what your partner wrote on the hero card), with full history modal.
  */
 const Notes = {
-  schedulerInterval: null,
+  activeHistoryFilter: 'all', // 'all', 'received', 'sent'
 
   init() {
     this.render();
-    this.startScheduler();
-  },
-
-  startScheduler() {
-    if (this.schedulerInterval) clearInterval(this.schedulerInterval);
-    
-    this.schedulerInterval = setInterval(() => {
-      this.checkScheduledReminders();
-    }, 10000);
-  },
-
-  checkScheduledReminders() {
-    const notes = Store.state.notes || [];
-    const now = Date.now();
-    let hasChanges = false;
-
-    notes.forEach(note => {
-      if (note.reminderTime && !note.reminderFired) {
-        const targetTime = new Date(note.reminderTime).getTime();
-        
-        if (targetTime <= now) {
-          note.reminderFired = true;
-          hasChanges = true;
-
-          const authorName = Store.state.profiles?.[note.author]?.name || 'Tu pareja';
-          const title = `⏰ ¡Recordatorio! (${authorName})`;
-          const body = note.text;
-
-          if (typeof App !== 'undefined') {
-            App.showInAppBanner(title, body, 'reminder');
-            App.sendPushNotification(title, body);
-          }
-          if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-          if ('vibrate' in navigator) navigator.vibrate([300, 150, 300]);
-        }
-      }
-    });
-
-    if (hasChanges) {
-      Store.save();
-      this.render();
-    }
   },
 
   render() {
-    const container = document.getElementById('pinned-notes-container');
     const heroNoteCard = document.getElementById('hero-note-card');
-    if (!container || !heroNoteCard) return;
+    if (!heroNoteCard) return;
 
     const notes = Store.state.notes || [];
-    const p1 = Store.state.profiles.p1;
-    const p2 = Store.state.profiles.p2;
+    const currentUserId = CloudSync.currentUserId || 'p1';
+    const partnerId = currentUserId === 'p1' ? 'p2' : 'p1';
 
-    if (notes.length === 0) {
-      heroNoteCard.innerHTML = `
-        <div class="note-empty-state">
-          <span class="note-empty-icon">💌</span>
-          <h4>No hay notas ni recordatorios</h4>
-          <p class="text-muted" style="font-size: 0.8rem; margin: 0.25rem 0 0.75rem;">¡Déjale un mensaje de amor o un recordatorio a tu pareja!</p>
-          <button class="btn btn-sm btn-primary" onclick="Notes.openCreateModal()">
-            ✍️ Escribir Nota o Recordatorio
-          </button>
-        </div>
-      `;
-      container.innerHTML = '';
-      return;
-    }
+    const p1 = Store.state.profiles?.p1 || { name: 'Ella', avatar: '👩' };
+    const p2 = Store.state.profiles?.p2 || { name: 'Él', avatar: '👨' };
+    const partnerProfile = partnerId === 'p1' ? p1 : p2;
 
-    const latest = notes[0];
-    const author = latest.author === 'p1' ? p1 : p2;
+    // Buscar la nota más reciente enviada por la PAREJA hacia mí
+    const partnerNotes = notes.filter(n => n.author === partnerId);
+    const latestPartnerNote = partnerNotes[0];
 
     const typeIcons = {
       love: '❤️ Amor',
@@ -86,37 +33,61 @@ const Notes = {
       task: '📌 Tarea'
     };
 
-    const reactions = latest.reactions || {};
+    if (!latestPartnerNote) {
+      heroNoteCard.innerHTML = `
+        <div class="note-empty-state">
+          <span class="note-empty-icon">💌</span>
+          <h4>Sin mensajes nuevos de ${partnerProfile.name}</h4>
+          <p class="text-muted" style="font-size: 0.8rem; margin: 0.25rem 0 0.75rem;">¡Escríbele una nota de amor o un recordatorio para alegrarle el día!</p>
+          <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-primary" onclick="Notes.openCreateModal()">
+              ✍️ Escribir Nota a ${partnerProfile.name}
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="Notes.openHistoryModal()">
+              📜 Historial (${notes.length})
+            </button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const author = partnerProfile;
+    const reactions = latestPartnerNote.reactions || {};
     const reactionEmojis = ['❤️', '🥰', '👍', '💋', '🙌'];
     
     let reactionsHtml = reactionEmojis.map(emoji => {
       const count = reactions[emoji] || 0;
       return `
-        <button class="btn-reaction ${count > 0 ? 'active' : ''}" onclick="Notes.addReaction('${latest.id}', '${emoji}')">
+        <button class="btn-reaction ${count > 0 ? 'active' : ''}" onclick="Notes.addReaction('${latestPartnerNote.id}', '${emoji}')">
           <span>${emoji}</span> ${count > 0 ? `<span class="reaction-count">${count}</span>` : ''}
         </button>
       `;
     }).join('');
 
     heroNoteCard.innerHTML = `
-      <div class="pinned-note-item note-type-${latest.type || 'love'}">
+      <div class="pinned-note-item note-type-${latestPartnerNote.type || 'love'}">
         <div class="note-top-bar">
           <div class="note-author-info">
-            <span class="note-author-avatar">${author.avatar}</span>
+            ${author.photo ? `
+              <img src="${author.photo}" class="note-author-photo-round" alt="${author.name}">
+            ` : `
+              <span class="note-author-avatar">${author.avatar || '❤️'}</span>
+            `}
             <div>
               <span class="note-author-name">${author.name}</span>
-              <span class="note-date">${this.formatDate(latest.timestamp)}</span>
+              <span class="note-date">${this.formatDate(latestPartnerNote.timestamp)}</span>
             </div>
           </div>
-          <span class="note-type-badge">${typeIcons[latest.type] || '💌 Nota'}</span>
+          <span class="note-type-badge">${typeIcons[latestPartnerNote.type] || '💌 Nota'}</span>
         </div>
 
-        <p class="note-body-text">${this.escapeHTML(latest.text)}</p>
+        <p class="note-body-text">${this.escapeHTML(latestPartnerNote.text)}</p>
 
-        ${latest.reminderTime ? `
+        ${latestPartnerNote.reminderTime ? `
           <div class="note-reminder-tag">
-            <span>⏰ Recordatorio programado:</span>
-            <strong>${new Date(latest.reminderTime).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })}</strong>
+            <span>⏰ Recordatorio:</span>
+            <strong>${new Date(latestPartnerNote.reminderTime).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })}</strong>
           </div>
         ` : ''}
 
@@ -125,42 +96,130 @@ const Notes = {
             ${reactionsHtml}
           </div>
           <div class="note-actions-right">
-            <button class="btn-icon-xs" onclick="Notes.openEditModal('${latest.id}')" title="Editar">✏️</button>
-            <button class="btn-icon-xs" onclick="Notes.deleteNote('${latest.id}')" title="Eliminar">🗑️</button>
-            <button class="btn-text-sm" onclick="Notes.openCreateModal()" style="color: var(--primary);">+ Nueva</button>
+            <button class="btn-text-sm" onclick="Notes.openCreateModal()" style="color: var(--primary);">✍️ Responder</button>
+            <button class="btn-text-sm" onclick="Notes.openHistoryModal()" style="color: var(--text-secondary);">📜 Historial</button>
           </div>
         </div>
       </div>
     `;
+  },
 
-    // Historial
-    if (notes.length > 1) {
-      container.innerHTML = `
-        <div class="notes-history-header">
-          <span class="text-muted" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Mensajes anteriores (${notes.length - 1})</span>
-        </div>
-        <div class="notes-history-list">
-          ${notes.slice(1).map(n => {
-            const a = n.author === 'p1' ? p1 : p2;
-            return `
-              <div class="note-history-mini glass-panel">
-                <div class="mini-author">
-                  <span>${a.avatar} ${a.name}</span>
-                  <span class="text-muted" style="font-size: 0.7rem;">${this.formatDate(n.timestamp)}</span>
-                </div>
-                <p class="mini-text">${this.escapeHTML(n.text)}</p>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem;">
-                  <span class="note-type-badge-mini">${typeIcons[n.type] || '💌'}</span>
-                  <button class="btn-icon-xs" onclick="Notes.deleteNote('${n.id}')" title="Eliminar">🗑️</button>
-                </div>
-              </div>
-            `;
-          }).join('')}
+  // ==========================================
+  // HISTORIAL COMPLETO DE MENSAJES (MODAL)
+  // ==========================================
+
+  openHistoryModal(filter = 'all') {
+    this.activeHistoryFilter = filter;
+    const dialog = document.getElementById('modal-notes-history');
+    if (!dialog) return;
+
+    this.renderHistoryList();
+    dialog.showModal();
+  },
+
+  closeHistoryModal() {
+    const dialog = document.getElementById('modal-notes-history');
+    if (dialog) {
+      try { dialog.close(); } catch(e) {}
+      dialog.removeAttribute('open');
+    }
+  },
+
+  setHistoryFilter(filter) {
+    this.activeHistoryFilter = filter;
+    this.renderHistoryList();
+  },
+
+  renderHistoryList() {
+    const listEl = document.getElementById('notes-history-modal-list');
+    const tabsEl = document.getElementById('notes-history-tabs');
+    if (!listEl) return;
+
+    const notes = Store.state.notes || [];
+    const currentUserId = CloudSync.currentUserId || 'p1';
+    const partnerId = currentUserId === 'p1' ? 'p2' : 'p1';
+
+    const p1 = Store.state.profiles?.p1 || { name: 'Ella', avatar: '👩' };
+    const p2 = Store.state.profiles?.p2 || { name: 'Él', avatar: '👨' };
+
+    const typeIcons = {
+      love: '❤️ Amor',
+      reminder: '⏰ Recordatorio',
+      urgent: '🚨 Urgente',
+      surprise: '🎁 Sorpresa',
+      task: '📌 Tarea'
+    };
+
+    if (tabsEl) {
+      tabsEl.innerHTML = `
+        <button class="btn-tab-pill ${this.activeHistoryFilter === 'all' ? 'active' : ''}" onclick="Notes.setHistoryFilter('all')">
+          Todas (${notes.length})
+        </button>
+        <button class="btn-tab-pill ${this.activeHistoryFilter === 'received' ? 'active' : ''}" onclick="Notes.setHistoryFilter('received')">
+          De mi Pareja (${notes.filter(n => n.author === partnerId).length})
+        </button>
+        <button class="btn-tab-pill ${this.activeHistoryFilter === 'sent' ? 'active' : ''}" onclick="Notes.setHistoryFilter('sent')">
+          Enviadas por Mí (${notes.filter(n => n.author === currentUserId).length})
+        </button>
+      `;
+    }
+
+    let filtered = notes;
+    if (this.activeHistoryFilter === 'received') filtered = notes.filter(n => n.author === partnerId);
+    if (this.activeHistoryFilter === 'sent') filtered = notes.filter(n => n.author === currentUserId);
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = `
+        <div class="empty-state text-center" style="padding: 2rem 1rem;">
+          <span style="font-size: 2rem; display: block;">📭</span>
+          <p class="text-muted" style="font-size: 0.85rem; margin-top: 0.5rem;">No hay notas en esta sección</p>
         </div>
       `;
-    } else {
-      container.innerHTML = '';
+      return;
     }
+
+    listEl.innerHTML = filtered.map(n => {
+      const isMine = n.author === currentUserId;
+      const author = n.author === 'p1' ? p1 : p2;
+
+      return `
+        <div class="history-note-card glass-panel ${isMine ? 'note-mine' : 'note-partner'}">
+          <div class="history-note-header">
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span>${author.avatar || '👤'}</span>
+              <strong style="font-size: 0.85rem;">${isMine ? 'Tú' : author.name}</strong>
+              <span class="text-muted" style="font-size: 0.72rem;">• ${this.formatDate(n.timestamp)}</span>
+            </div>
+            <span class="note-type-badge-mini">${typeIcons[n.type] || '💌'}</span>
+          </div>
+
+          <p class="history-note-text">${this.escapeHTML(n.text)}</p>
+
+          ${n.reminderTime ? `
+            <div style="font-size: 0.75rem; color: var(--primary); margin: 0.35rem 0;">
+              ⏰ Programado: ${new Date(n.reminderTime).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })}
+            </div>
+          ` : ''}
+
+          <div class="history-note-footer">
+            <div class="reactions-summary">
+              ${Object.entries(n.reactions || {}).map(([emoji, count]) => `
+                <span class="reaction-tag">${emoji} ${count}</span>
+              `).join('')}
+            </div>
+
+            <div class="history-note-actions">
+              ${isMine ? `
+                <button class="btn-icon-xs" onclick="Notes.openEditModal('${n.id}')" title="Editar">✏️</button>
+                <button class="btn-icon-xs" onclick="Notes.deleteNote('${n.id}')" title="Eliminar">🗑️</button>
+              ` : `
+                <button class="btn-icon-xs" onclick="Notes.addReaction('${n.id}', '❤️')" title="Reaccionar">❤️</button>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
   },
 
   formatDate(timestamp) {
@@ -195,8 +254,11 @@ const Notes = {
 
     Store.save();
     CloudSync.broadcastChange('REACTION_ADDED', Store.state);
-    AudioFX.playSuccess();
+    AudioFX?.playSuccess();
     this.render();
+    if (document.getElementById('modal-notes-history')?.open) {
+      this.renderHistoryList();
+    }
   },
 
   deleteNote(noteId) {
@@ -204,7 +266,10 @@ const Notes = {
     Store.save();
     CloudSync.broadcastChange('NOTE_DELETED', Store.state);
     this.render();
-    App.showToast('Nota eliminada', 'warning');
+    if (document.getElementById('modal-notes-history')?.open) {
+      this.renderHistoryList();
+    }
+    App?.showToast('Nota eliminada', 'warning');
   },
 
   openCreateModal() {
@@ -214,10 +279,13 @@ const Notes = {
     const editId = document.getElementById('note-edit-id');
     const title = document.getElementById('note-modal-title');
     
+    const partnerId = (CloudSync.currentUserId || 'p1') === 'p1' ? 'p2' : 'p1';
+    const partnerName = Store.state?.profiles?.[partnerId]?.name || 'tu pareja';
+
     if (editId) editId.value = '';
     if (input) input.value = '';
     if (reminderIn) reminderIn.value = '';
-    if (title) title.textContent = '💌 Nueva Nota o Recordatorio';
+    if (title) title.textContent = `💌 Enviar Nota a ${partnerName}`;
     if (dialog) dialog.showModal();
   },
 
@@ -236,7 +304,7 @@ const Notes = {
     if (input) input.value = note.text;
     if (typeSelect) typeSelect.value = note.type || 'love';
     if (reminderIn) reminderIn.value = note.reminderTime || '';
-    if (title) title.textContent = '✏️ Editar Nota o Recordatorio';
+    if (title) title.textContent = '✏️ Editar Nota';
 
     if (dialog) dialog.showModal();
   },
@@ -251,9 +319,9 @@ const Notes = {
 
   handleFormSubmit(e) {
     e.preventDefault();
-    const text = document.getElementById('note-text-input').value.trim();
-    const type = document.getElementById('note-type-select').value;
-    const reminderTime = document.getElementById('note-reminder-input').value;
+    const text = document.getElementById('note-text-input')?.value.trim();
+    const type = document.getElementById('note-type-select')?.value || 'love';
+    const reminderTime = document.getElementById('note-reminder-input')?.value;
     const editId = document.getElementById('note-edit-id')?.value;
 
     if (!text) return;
@@ -266,11 +334,10 @@ const Notes = {
         existing.text = text;
         existing.type = type;
         existing.reminderTime = reminderTime || null;
-        existing.reminderFired = false;
       }
       Store.save();
       CloudSync.broadcastChange('NOTE_UPDATED', Store.state);
-      App.showToast('Nota editada con éxito ✏️', 'success');
+      App?.showToast('Nota editada con éxito ✏️', 'success');
     } else {
       const newNote = {
         id: 'note_' + Date.now(),
@@ -279,7 +346,6 @@ const Notes = {
         author: CloudSync.currentUserId || 'p1',
         timestamp: Date.now(),
         reminderTime: reminderTime || null,
-        reminderFired: false,
         reactions: {}
       };
 
@@ -287,16 +353,11 @@ const Notes = {
       Store.save();
 
       CloudSync.broadcastChange('NEW_NOTE', { note: newNote });
-      App.showToast('¡Mensaje enviado a la pantalla de inicio! 💌', 'success');
-
-      // Si tiene fecha/hora, sincronizar automáticamente con Google Calendar
-      if (reminderTime && typeof CloudSync !== 'undefined' && CloudSync.createGoogleCalendarEvent) {
-        CloudSync.createGoogleCalendarEvent(text, 'Recordatorio de HogarDúo 💑', reminderTime);
-      }
+      App?.showToast('¡Nota enviada al celular de tu pareja! 💌', 'success');
     }
 
     this.render();
     this.closeFormModal();
-    AudioFX.playSuccess();
+    AudioFX?.playSuccess();
   }
 };

@@ -1353,3 +1353,343 @@ input:checked + .slider:before {
   padding: 4px;
 }
 
+/* --------------------------------------------------------------------------
+   14. AUTH GATEWAY & ONBOARDING PORTAL
+   -------------------------------------------------------------------------- */
+.auth-gateway-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-body);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem 1.25rem;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(16px);
+}
+
+.auth-tabs {
+  display: flex;
+  background: var(--bg-surface-elevated);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  margin-bottom: 1.25rem;
+  gap: 4px;
+}
+
+.auth-tab-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 0.5rem 0.2rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.auth-tab-btn.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.4);
+}
+
+.auth-tab-pane {
+  display: none;
+}
+
+.auth-tab-pane.active {
+  display: block;
+  animation: fadeIn 0.25s ease;
+}
+
+/* --------------------------------------------------------------------------
+   15. COUPLE HERO CARD & 1-TAP COMMUNICATION BAR
+   -------------------------------------------------------------------------- */
+.couple-hero-card {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.1), rgba(99, 102, 241, 0.1));
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  border-radius: var(--radius-xl);
+}
+
+.couple-photos-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  margin-bottom: 0.75rem;
+}
+
+.couple-photo-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.couple-hero-avatar-img {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--primary);
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+}
+
+.couple-hero-avatar-emoji {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  background: var(--bg-surface-elevated);
+  border: 3px solid var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.couple-heart-divider {
+  font-size: 1.5rem;
+  animation: pulse 1.5s infinite;
+}
+
+.comm-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-comm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.2rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-comm:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-comm.comm-call { color: #10b981; border-color: rgba(16, 185, 129, 0.3); }
+.btn-comm.comm-wa { color: #25d366; border-color: rgba(37, 211, 102, 0.3); }
+.btn-comm.comm-tg { color: #0088cc; border-color: rgba(0, 136, 204, 0.3); }
+.btn-comm.comm-sms { color: #8b5cf6; border-color: rgba(139, 92, 246, 0.3); }
+
+/* --------------------------------------------------------------------------
+   16. PERSONAL SPACE (SHOPPING, TASKS & REMINDERS)
+   -------------------------------------------------------------------------- */
+.personal-subtabs {
+  display: flex;
+  background: var(--bg-surface-elevated);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 1rem;
+}
+
+.personal-subtab-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 0.55rem 0.3rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.personal-subtab-btn.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.35);
+}
+
+.personal-tab-pane {
+  display: none;
+}
+
+.personal-tab-pane.active {
+  display: block;
+  animation: fadeIn 0.2s ease;
+}
+
+.cat-chips-scroll {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.85rem;
+  scrollbar-width: none;
+}
+
+.cat-chip {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cat-chip.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.cat-chip.btn-add-cat {
+  border-style: dashed;
+  color: var(--primary);
+}
+
+.personal-item-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius-lg);
+  transition: all 0.2s ease;
+}
+
+.personal-item-card.item-checked {
+  opacity: 0.55;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.personal-item-card.item-checked .personal-item-title {
+  text-decoration: line-through;
+}
+
+.personal-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.personal-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.personal-item-title {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.personal-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.personal-cat-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.personal-item-price-box {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.personal-item-price-box .price-usd {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.personal-item-price-box .price-bs {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.personal-item-price-box .price-free {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.note-author-photo-round {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary);
+}
+
+/* History Modal */
+.btn-tab-pill {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.btn-tab-pill.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.history-note-card {
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius-md);
+}
+
+.history-note-card.note-mine {
+  border-left: 3px solid var(--primary);
+}
+
+.history-note-card.note-partner {
+  border-left: 3px solid #8b5cf6;
+}
+
+

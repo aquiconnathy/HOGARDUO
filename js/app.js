@@ -1,5 +1,5 @@
 /**
- * App - Main Controller, Tab Router, Profiles, Native Confetti & PWA Manager
+ * App - Main Controller, Tab Router, Profiles with Photos, Native Confetti & PWA Manager
  */
 const App = {
   deferredPrompt: null,
@@ -17,6 +17,7 @@ const App = {
     Tasks.init();
     Pantry.init();
     Shopping.init();
+    Personal.init();
 
     // Registrar cambios en el Store para re-renderizar
     Store.subscribe(() => {
@@ -27,6 +28,7 @@ const App = {
       Tasks.render();
       Pantry.render();
       Shopping.render();
+      Personal.render();
     });
 
     // PWA Install Event
@@ -37,12 +39,23 @@ const App = {
       if (installBox) installBox.style.display = 'block';
     });
 
-    // Service Worker Registration con auto-actualización inmediata de caché
+    // Service Worker Registration
     if (window.location.protocol.startsWith('http') && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then((registration) => {
         registration.update();
       }).catch(err => console.log('SW registration skipped:', err));
     }
+  },
+
+  renderAll() {
+    this.updateProfileUI();
+    this.renderWidgets();
+    Notes.render();
+    BCV.renderRates();
+    Tasks.render();
+    Pantry.render();
+    Shopping.render();
+    Personal.render();
   },
 
   // Enrutador de Pestañas
@@ -56,56 +69,150 @@ const App = {
     if (targetView) targetView.classList.add('active');
     if (targetNav) targetNav.classList.add('active');
 
-    if (tabId === 'settings' && typeof CloudSync !== 'undefined') {
+    if (tabId === 'personal' && typeof Personal !== 'undefined') {
+      Personal.render();
+    } else if (tabId === 'settings' && typeof CloudSync !== 'undefined') {
       CloudSync.updateDiagnosticsUI();
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
 
-  // Actualizar Nombres y Avatares en la UI
+  // ==========================================
+  // COMUNICACIÓN RÁPIDA 1-TAP CON LA PAREJA
+  // ==========================================
+
+  getPartnerData() {
+    const currentRole = CloudSync.currentUserId || 'p1';
+    const partnerRole = currentRole === 'p1' ? 'p2' : 'p1';
+    const partner = Store.state?.profiles?.[partnerRole] || { name: 'Tu pareja', phone: '' };
+    return { role: partnerRole, profile: partner };
+  },
+
+  callPartner() {
+    const { profile } = this.getPartnerData();
+    if (!profile.phone) {
+      this.showToast(`Agrega el número de ${profile.name} en Ajustes ⚙️`, 'warning');
+      this.navigateTo('settings');
+      return;
+    }
+    window.location.href = `tel:${profile.phone.replace(/[^0-9+]/g, '')}`;
+  },
+
+  whatsappPartner() {
+    const { profile } = this.getPartnerData();
+    if (!profile.phone) {
+      this.showToast(`Agrega el número de ${profile.name} en Ajustes ⚙️`, 'warning');
+      this.navigateTo('settings');
+      return;
+    }
+    const cleanPhone = profile.phone.replace(/[^0-9]/g, '');
+    window.open(`https://wa.me/${cleanPhone}`, '_blank');
+  },
+
+  telegramPartner() {
+    const { profile } = this.getPartnerData();
+    if (!profile.phone) {
+      this.showToast(`Agrega el número de ${profile.name} en Ajustes ⚙️`, 'warning');
+      this.navigateTo('settings');
+      return;
+    }
+    const cleanPhone = profile.phone.replace(/[^0-9+]/g, '');
+    window.open(`https://t.me/+${cleanPhone.replace('+', '')}`, '_blank');
+  },
+
+  smsPartner() {
+    const { profile } = this.getPartnerData();
+    if (!profile.phone) {
+      this.showToast(`Agrega el número de ${profile.name} en Ajustes ⚙️`, 'warning');
+      this.navigateTo('settings');
+      return;
+    }
+    window.location.href = `sms:${profile.phone.replace(/[^0-9+]/g, '')}`;
+  },
+
+  // Subir Foto de Perfil
+  triggerPhotoUpload(role) {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        CloudSync.handlePhotoUpload(file, role);
+      }
+    };
+    fileInput.click();
+  },
+
+  // Actualizar Nombres, Fotos y Avatares en la UI
   updateProfileUI() {
-    const p1 = Store.state.profiles.p1;
-    const p2 = Store.state.profiles.p2;
+    const p1 = Store.state.profiles.p1 || { name: 'Ella', avatar: '👩' };
+    const p2 = Store.state.profiles.p2 || { name: 'Él', avatar: '👨' };
 
     const headerNames = document.getElementById('header-couple-names');
-    const dashP1 = document.getElementById('dash-avatar-p1');
-    const dashP2 = document.getElementById('dash-avatar-p2');
     const greeting = document.getElementById('dash-greeting');
+    const myProfileName = document.getElementById('my-profile-name-tag');
 
-    if (headerNames) headerNames.textContent = `${p1.avatar} ${p1.name} & ${p2.avatar} ${p2.name}`;
-    if (dashP1) dashP1.textContent = p1.avatar;
-    if (dashP2) dashP2.textContent = p2.avatar;
-    if (greeting) greeting.textContent = `¡Hola, ${p1.name} y ${p2.name}! 💑`;
+    const currentRole = CloudSync.currentUserId || 'p1';
+    const me = currentRole === 'p1' ? p1 : p2;
+    const partner = currentRole === 'p1' ? p2 : p1;
+
+    if (headerNames) headerNames.textContent = `${p1.name} & ${p2.name}`;
+    if (greeting) greeting.textContent = `¡Hola, ${me.name}! 💑`;
+    if (myProfileName) myProfileName.textContent = `Tú (${me.name})`;
+
+    // Tarjeta "Nosotros" en Inicio
+    const p1PhotoEl = document.getElementById('card-photo-p1');
+    const p2PhotoEl = document.getElementById('card-photo-p2');
+    const p1NameEl = document.getElementById('card-name-p1');
+    const p2NameEl = document.getElementById('card-name-p2');
+    const partnerCommTitle = document.getElementById('partner-comm-title');
+
+    if (p1PhotoEl) {
+      p1PhotoEl.innerHTML = p1.photo 
+        ? `<img src="${p1.photo}" class="couple-hero-avatar-img" alt="${p1.name}">`
+        : `<span class="couple-hero-avatar-emoji">${p1.avatar || '👩'}</span>`;
+    }
+    if (p2PhotoEl) {
+      p2PhotoEl.innerHTML = p2.photo 
+        ? `<img src="${p2.photo}" class="couple-hero-avatar-img" alt="${p2.name}">`
+        : `<span class="couple-hero-avatar-emoji">${p2.avatar || '👨'}</span>`;
+    }
+    if (p1NameEl) p1NameEl.textContent = p1.name;
+    if (p2NameEl) p2NameEl.textContent = p2.name;
+    if (partnerCommTitle) partnerCommTitle.textContent = `Hablar con ${partner.name}`;
 
     // Cargar en vista Ajustes
     const p1NameIn = document.getElementById('p1-name-input');
-    const p1AvatarIn = document.getElementById('p1-avatar-input');
+    const p1PhoneIn = document.getElementById('p1-phone-input');
     const p2NameIn = document.getElementById('p2-name-input');
-    const p2AvatarIn = document.getElementById('p2-avatar-input');
+    const p2PhoneIn = document.getElementById('p2-phone-input');
 
     if (p1NameIn && !p1NameIn.value) p1NameIn.value = p1.name;
-    if (p1AvatarIn && !p1AvatarIn.value) p1AvatarIn.value = p1.avatar;
+    if (p1PhoneIn && !p1PhoneIn.value) p1PhoneIn.value = p1.phone || '';
     if (p2NameIn && !p2NameIn.value) p2NameIn.value = p2.name;
-    if (p2AvatarIn && !p2AvatarIn.value) p2AvatarIn.value = p2.avatar;
+    if (p2PhoneIn && !p2PhoneIn.value) p2PhoneIn.value = p2.phone || '';
   },
 
   saveProfiles() {
-    const p1Name = document.getElementById('p1-name-input').value.trim() || 'Ella';
-    const p1Avatar = document.getElementById('p1-avatar-input').value.trim() || '👩';
-    const p2Name = document.getElementById('p2-name-input').value.trim() || 'Él';
-    const p2Avatar = document.getElementById('p2-avatar-input').value.trim() || '👨';
+    const p1Name = document.getElementById('p1-name-input')?.value.trim() || 'Ella';
+    const p1Phone = document.getElementById('p1-phone-input')?.value.trim() || '';
+    const p2Name = document.getElementById('p2-name-input')?.value.trim() || 'Él';
+    const p2Phone = document.getElementById('p2-phone-input')?.value.trim() || '';
 
     Store.state.profiles.p1.name = p1Name;
-    Store.state.profiles.p1.avatar = p1Avatar;
+    Store.state.profiles.p1.phone = p1Phone;
     Store.state.profiles.p2.name = p2Name;
-    Store.state.profiles.p2.avatar = p2Avatar;
+    Store.state.profiles.p2.phone = p2Phone;
 
     Store.save(true);
+    CloudSync.broadcastChange('PROFILE_UPDATED', Store.state);
+
     this.updateProfileUI();
     Tasks.render();
     Notes.render();
-    this.showToast('Perfiles de la pareja actualizados ❤️', 'success');
+    this.showToast('Perfiles actualizados con éxito ❤️', 'success');
   },
 
   // Tema Claro / Oscuro
@@ -131,7 +238,7 @@ const App = {
     if (quickBtn) quickBtn.textContent = (theme === 'dark') ? '🌙' : '☀️';
   },
 
-  // Personalización de Widgets del Inicio (Mostrar / Ocultar)
+  // Personalización de Widgets del Inicio
   toggleWidget(widgetKey, isVisible) {
     if (!Store.state.widgets) {
       Store.state.widgets = { showNotes: true, showStats: true, showQuickActions: true };
@@ -139,208 +246,199 @@ const App = {
     Store.state.widgets[widgetKey] = isVisible;
     Store.save(true);
     this.renderWidgets();
-    App.showToast('Preferencia de widgets guardada 🎛️', 'success');
   },
 
   renderWidgets() {
-    const widgets = Store.state.widgets || { showNotes: true, showStats: true, showQuickActions: true };
+    const w = Store.state.widgets || { showNotes: true, showStats: true, showQuickActions: true };
+    
+    const secNotes = document.getElementById('sec-widget-notes');
+    const secStats = document.getElementById('sec-widget-stats');
+    const secActions = document.getElementById('sec-widget-actions');
 
-    const notesEl = document.getElementById('widget-notes-section');
-    const statsEl = document.getElementById('widget-stats-section');
-    const actionsEl = document.getElementById('widget-actions-section');
+    if (secNotes) secNotes.style.display = w.showNotes !== false ? 'block' : 'none';
+    if (secStats) secStats.style.display = w.showStats !== false ? 'grid' : 'none';
+    if (secActions) secActions.style.display = w.showQuickActions !== false ? 'flex' : 'none';
 
-    const toggleNotes = document.getElementById('toggle-widget-notes');
-    const toggleStats = document.getElementById('toggle-widget-stats');
-    const toggleActions = document.getElementById('toggle-widget-actions');
+    // Switches en Ajustes
+    const tNotes = document.getElementById('toggle-widget-notes');
+    const tStats = document.getElementById('toggle-widget-stats');
+    const tActions = document.getElementById('toggle-widget-actions');
 
-    if (notesEl) notesEl.style.display = widgets.showNotes !== false ? 'block' : 'none';
-    if (statsEl) statsEl.style.display = widgets.showStats !== false ? 'grid' : 'none';
-    if (actionsEl) actionsEl.style.display = widgets.showQuickActions !== false ? 'grid' : 'none';
-
-    if (toggleNotes) toggleNotes.checked = widgets.showNotes !== false;
-    if (toggleStats) toggleStats.checked = widgets.showStats !== false;
-    if (toggleActions) toggleActions.checked = widgets.showQuickActions !== false;
+    if (tNotes) tNotes.checked = w.showNotes !== false;
+    if (tStats) tStats.checked = w.showStats !== false;
+    if (tActions) tActions.checked = w.showQuickActions !== false;
   },
 
-  // Sistema de Notificaciones Nativas del Celular
-  async requestNotificationPermission() {
-    if (!('Notification' in window)) {
-      this.showToast('Tu navegador no soporta notificaciones push nativas', 'warning');
-      return;
-    }
+  // Toast Notification
+  showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
 
-    try {
-      const permission = await Notification.requestPermission();
-      const btn = document.getElementById('btn-enable-notifications');
-      
-      if (permission === 'granted') {
-        this.showToast('¡Notificaciones push activadas! 🔔', 'success');
-        if (btn) btn.textContent = '✅ Notificaciones Activadas';
-        if (typeof CloudSync !== 'undefined') {
-          CloudSync.initFCM();
-          CloudSync.updateDiagnosticsUI();
-        }
-      } else if (permission === 'denied') {
-        this.showToast('Permiso de notificaciones bloqueado en el navegador', 'danger');
-        if (btn) btn.textContent = '❌ Notificaciones Bloqueadas';
-        if (typeof CloudSync !== 'undefined') {
-          CloudSync.updateDiagnosticsUI();
-        }
-      }
-    } catch (e) {
-      console.warn('Notification error:', e);
-    }
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.animation = 'toastOut 0.3s forwards ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3200);
   },
 
-  testNotification() {
-    this.sendPushNotification('💌 Mensaje de Prueba', '¡Las notificaciones de tu pareja funcionan perfectamente! ❤️');
-    this.showToast('🔔 Enviando notificación de prueba...', 'info');
-    if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-    if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-  },
-
-  // Banner Flotante Interactivo Superior para Notas Nuevas (In-App Push)
+  // Banner Flotante Superior
   showInAppBanner(senderName, noteText, noteType = 'love') {
     const container = document.getElementById('inapp-banner-container');
     if (!container) return;
 
-    let emoji = '💌';
-    if (noteType === 'reminder') emoji = '⏰';
-    if (noteType === 'urgent') emoji = '🚨';
-    if (noteType === 'surprise') emoji = '🎁';
-
-    container.innerHTML = `
-      <div class="inapp-floating-banner" onclick="App.navigateTo('dashboard')">
-        <div class="inapp-banner-icon">${emoji}</div>
-        <div class="inapp-banner-content">
-          <strong class="inapp-banner-author">${senderName}</strong>
-          <p class="inapp-banner-text">${noteText}</p>
-        </div>
-        <button class="inapp-banner-close" onclick="event.stopPropagation(); this.parentElement.remove()">✕</button>
+    const banner = document.createElement('div');
+    banner.className = `inapp-floating-banner banner-${noteType}`;
+    
+    banner.innerHTML = `
+      <div class="banner-avatar">💌</div>
+      <div class="banner-content">
+        <strong class="banner-title">${senderName}</strong>
+        <p class="banner-body">${noteText}</p>
       </div>
+      <button class="banner-close" onclick="this.parentElement.remove()">✕</button>
     `;
 
+    banner.onclick = (e) => {
+      if (e.target.classList.contains('banner-close')) return;
+      App.navigateTo('dashboard');
+      banner.remove();
+    };
+
+    container.appendChild(banner);
     setTimeout(() => {
-      const banner = container.querySelector('.inapp-floating-banner');
-      if (banner) {
-        banner.style.opacity = '0';
-        banner.style.transform = 'translateY(-20px)';
-        banner.style.transition = 'all 0.3s ease';
-        setTimeout(() => banner.remove(), 300);
+      if (banner.parentElement) {
+        banner.style.animation = 'bannerSlideUp 0.35s ease forwards';
+        setTimeout(() => banner.remove(), 350);
       }
     }, 6000);
   },
 
+  // Notificación Push
   sendPushNotification(title, body) {
-    if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-    if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
-    try {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(registration => {
-          registration.showNotification(title, {
-            body: body,
-            icon: 'icons/icon.svg',
-            badge: 'icons/icon.svg',
-            vibrate: [200, 100, 200],
-            tag: 'hogarduo-msg-' + Date.now(),
-            renotify: true
-          });
-        }).catch(() => {
-          new Notification(title, {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            title: title,
             body: body,
             icon: 'icons/icon.svg'
           });
-        });
-      } else {
-        new Notification(title, {
-          body: body,
-          icon: 'icons/icon.svg'
-        });
-      }
-    } catch (e) {
-      console.warn('Send notification warning:', e);
+        } else {
+          new Notification(title, {
+            body: body,
+            icon: 'icons/icon.svg',
+            vibrate: [200, 100, 200]
+          });
+        }
+      } catch (e) {}
     }
   },
 
-  // Motor Nativo de Confeti en HTML5 Canvas (Ponytail: Cero dependencias externas)
+  testNotification() {
+    this.sendPushNotification('💌 HogarDúo en Vivo', '¡Las notificaciones están funcionando perfectamente en este teléfono! ❤️');
+    this.showToast('Notificación de prueba enviada 🔔', 'info');
+  },
+
+  requestNotificationPermission() {
+    if (!('Notification' in window)) {
+      this.showToast('Este navegador no soporta notificaciones', 'warning');
+      return;
+    }
+
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') {
+        this.showToast('¡Notificaciones activadas con éxito! 🔔', 'success');
+        this.testNotification();
+      } else {
+        this.showToast('Permiso de notificaciones denegado', 'warning');
+      }
+      CloudSync.updateDiagnosticsUI();
+    });
+  },
+
+  // Confetti Nativo en Canvas
   triggerConfetti() {
     const canvas = document.getElementById('confetti-canvas');
     if (!canvas) return;
+
     const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const particles = [];
-    const colors = ['#ec4899', '#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#a855f7'];
+    const pieces = [];
+    const numberOfPieces = 50;
+    const colors = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
 
-    for (let i = 0; i < 70; i++) {
-      particles.push({
+    for (let i = 0; i < numberOfPieces; i++) {
+      pieces.push({
         x: canvas.width / 2,
         y: canvas.height / 2,
-        r: Math.random() * 6 + 4,
-        d: Math.random() * 50 + 10,
+        r: Math.random() * 5 + 3,
+        d: Math.random() * numberOfPieces,
         color: colors[Math.floor(Math.random() * colors.length)],
         tilt: Math.floor(Math.random() * 10) - 10,
         tiltAngleIncremental: (Math.random() * 0.07) + .05,
         tiltAngle: 0,
-        vx: (Math.random() - 0.5) * 16,
-        vy: (Math.random() - 0.8) * 16
+        vx: (Math.random() - 0.5) * 12,
+        vy: (Math.random() - 0.5) * 12 - 4
       });
     }
 
     let animationFrame;
-    let opacity = 1;
-
-    function render() {
+    const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.globalAlpha = opacity;
+      let stillActive = false;
 
-      particles.forEach(p => {
+      pieces.forEach(p => {
         p.tiltAngle += p.tiltAngleIncremental;
-        p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2 + p.vy;
-        p.x += Math.sin(p.d) * 2 + p.vx;
-        p.vy += 0.3; // Gravedad
-        p.tilt = Math.sin(p.tiltAngle - (p.r / 3)) * 15;
+        p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2;
+        p.x += Math.sin(p.d);
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.15; // Gravedad
+
+        if (p.y < canvas.height) stillActive = true;
 
         ctx.beginPath();
-        ctx.lineWidth = p.r / 2;
+        ctx.lineWidth = p.r;
         ctx.strokeStyle = p.color;
-        ctx.moveTo(p.x + p.tilt + (p.r / 4), p.y);
-        ctx.lineTo(p.x + p.tilt, p.y + p.tilt + (p.r / 4));
+        ctx.moveTo(p.x + p.tilt + p.r / 4, p.y);
+        ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 4);
         ctx.stroke();
       });
 
-      opacity -= 0.015;
-      if (opacity > 0) {
-        animationFrame = requestAnimationFrame(render);
+      if (stillActive) {
+        animationFrame = requestAnimationFrame(draw);
       } else {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         cancelAnimationFrame(animationFrame);
       }
-    }
+    };
 
-    render();
+    draw();
   },
 
-  // Instalación PWA
-  async installPWA() {
-    if (!this.deferredPrompt) {
-      this.showToast('Para instalar: usa el menú de tu navegador "Añadir a pantalla de inicio" 📲', 'info');
-      return;
+  installPWA() {
+    if (this.deferredPrompt) {
+      this.deferredPrompt.prompt();
+      this.deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          this.showToast('¡HogarDúo instalada en tu pantalla de inicio! 📱', 'success');
+        }
+        this.deferredPrompt = null;
+      });
+    } else {
+      this.showToast('Para instalar: abre el menú de tu navegador y selecciona "Agregar a pantalla principal"', 'info');
     }
-    this.deferredPrompt.prompt();
-    const { outcome } = await this.deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      this.showToast('¡Gracias por instalar HogarDúo! 🎉', 'success');
-    }
-    this.deferredPrompt = null;
   }
 };
 
-// Inicialización Automática al cargar el DOM
-document.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', () => {
   App.init();
 });
