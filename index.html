@@ -385,9 +385,14 @@
             <span class="text-muted" style="font-size: 0.8rem;">Código de Hogar Actual:</span>
             <strong class="household-code-tag" id="current-household-code-display">HOGAR-2026</strong>
           </div>
-          <button class="btn btn-outline full-width" onclick="CloudSync.openSyncModal()" style="margin-top: 0.5rem;">
-            ⚙️ Configurar Código y Dispositivo
-          </button>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.65rem;">
+            <button class="btn btn-outline" style="flex: 1;" onclick="CloudSync.openSyncModal()">
+              ⚙️ Cambiar Código
+            </button>
+            <button class="btn btn-primary" style="flex: 1;" onclick="CloudSync.openQRInviteModal()">
+              📲 Invitar con QR
+            </button>
+          </div>
         </div>
 
         <div class="settings-section glass-panel">
@@ -585,9 +590,44 @@
         </select>
       </div>
 
+      <div style="margin-top: 0.75rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+        <button type="button" class="btn btn-outline full-width" onclick="CloudSync.openQRInviteModal()" style="color: var(--p1-color); border-color: rgba(236,72,153,0.3);">
+          📲 Generar QR / Enlace Mágico para mi Pareja
+        </button>
+      </div>
+
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="CloudSync.closeSyncModal()">Cerrar</button>
         <button type="button" class="btn btn-primary" onclick="CloudSync.saveSyncSettings()">Conectar Hogar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- MODAL: CÓDIGO QR Y ENLACE MÁGICO DE INVITACIÓN -->
+  <dialog id="modal-qr-invite" class="native-dialog">
+    <div class="modal-content text-center">
+      <div class="modal-header">
+        <h3 class="modal-title">📲 Conectar a tu Pareja</h3>
+        <button type="button" class="btn-close" onclick="CloudSync.closeQRInviteModal()">✕</button>
+      </div>
+
+      <p class="modal-subtitle">Tu pareja solo debe <strong>escanear este código con su cámara</strong> para entrar y vincularse automáticamente a tu Hogar.</p>
+
+      <div style="background: white; padding: 1rem; border-radius: 12px; display: inline-block; margin: 0.5rem auto; box-shadow: var(--shadow-md);">
+        <img id="qr-invite-img" src="" alt="Código QR HogarDúo" style="width: 200px; height: 200px; display: block;">
+      </div>
+
+      <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary);">
+        Código actual: <strong id="qr-code-label" style="color: var(--primary);">HOGAR-2026</strong>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
+        <button type="button" class="btn btn-primary full-width" onclick="CloudSync.shareInviteLink()">
+          💬 Enviar Enlace por WhatsApp / Mensaje
+        </button>
+        <button type="button" class="btn btn-outline full-width" onclick="CloudSync.copyInviteLink()">
+          📋 Copiar Enlace Mágico
+        </button>
       </div>
     </div>
   </dialog>
