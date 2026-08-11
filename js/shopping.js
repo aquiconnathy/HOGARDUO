@@ -130,20 +130,21 @@ const Shopping = {
         <div class="shop-item-row ${item.checked ? 'checked' : ''}" id="shop-row-${item.id}">
           <div class="shop-item-left">
             <input type="checkbox" class="shop-checkbox" ${item.checked ? 'checked' : ''} onchange="Shopping.toggleItemCheck('${item.id}')" title="Marcar como comprado">
-            <div>
-              <span class="shop-item-name">${item.name}</span>
-              <span class="shop-item-qty">Cant: ${item.qty} ${item.priceUSD ? `($${item.priceUSD.toFixed(2)} c/u)` : ''}</span>
+            <div class="shop-item-details">
+              <span class="shop-item-name">${this.escapeHTML(item.name)}</span>
+              <span class="shop-item-qty">Cant: ${item.qty} ${item.priceUSD ? `· $${item.priceUSD.toFixed(2)} c/u` : ''}</span>
             </div>
           </div>
 
-          <div class="shop-item-prices">
-            <span class="shop-price-usd">$${itemTotalUSD.toFixed(2)}</span>
-            <span class="shop-price-bs">${itemTotalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs</span>
-          </div>
-          
-          <div style="display: flex; gap: 0.25rem; margin-left: 0.5rem;">
-            <button class="btn-icon-xs" onclick="Shopping.openEditModal('${item.id}')" title="Editar producto">✏️</button>
-            <button class="btn-icon-xs" onclick="Shopping.deleteItem('${item.id}')" title="Eliminar producto">🗑️</button>
+          <div class="shop-item-right">
+            <div class="shop-item-prices">
+              <span class="shop-price-usd">$${itemTotalUSD.toFixed(2)}</span>
+              <span class="shop-price-bs">${itemTotalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs</span>
+            </div>
+            <div class="shop-item-actions">
+              <button class="btn-icon-xs" onclick="Shopping.openEditModal('${item.id}')" title="Editar producto">✏️</button>
+              <button class="btn-icon-xs" onclick="Shopping.deleteItem('${item.id}')" title="Eliminar producto">🗑️</button>
+            </div>
           </div>
         </div>
       `;

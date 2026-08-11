@@ -49,16 +49,14 @@ const Pantry = {
 
       return `
         <div class="pantry-card">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <span class="pantry-item-cat">${this.getCategoryLabel(item.category)}</span>
-              <h4 class="pantry-item-name">${item.name}</h4>
-            </div>
-            <div style="display: flex; gap: 0.2rem;">
+          <div class="pantry-card-header">
+            <span class="pantry-item-cat">${this.getCategoryLabel(item.category)}</span>
+            <div class="pantry-card-actions">
               <button class="btn-icon-xs" onclick="Pantry.openEditModal('${item.id}')" title="Editar artículo">✏️</button>
               <button class="btn-icon-xs" onclick="Pantry.deleteItem('${item.id}')" title="Eliminar de despensa">🗑️</button>
             </div>
           </div>
+          <h4 class="pantry-item-name">${this.escapeHTML(item.name)}</h4>
           <button class="status-badge-btn ${badgeClass}" onclick="Pantry.cycleStatus('${item.id}')" title="Toca para cambiar estado">
             ${badgeText}
           </button>
