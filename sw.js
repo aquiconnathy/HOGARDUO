@@ -1,7 +1,7 @@
 /**
  * HogarDúo Service Worker - Offline Caching & Push Notifications (Ponytail Philosophy)
  */
-const CACHE_NAME = 'hogarduo-cache-v2';
+const CACHE_NAME = 'hogarduo-cache-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

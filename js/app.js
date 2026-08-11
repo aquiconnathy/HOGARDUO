@@ -37,9 +37,11 @@ const App = {
       if (installBox) installBox.style.display = 'block';
     });
 
-    // Service Worker Registration (solo en http/https)
+    // Service Worker Registration con auto-actualización inmediata de caché
     if (window.location.protocol.startsWith('http') && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration skipped:', err));
+      navigator.serviceWorker.register('sw.js').then((registration) => {
+        registration.update();
+      }).catch(err => console.log('SW registration skipped:', err));
     }
   },
 
