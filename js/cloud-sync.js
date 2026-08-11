@@ -74,30 +74,25 @@ const CloudSync = {
 
       this.isInitialized = true;
 
-      // Activar persistencia permanente de sesión
       if (firebase.auth) {
-        firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
-
         firebase.auth().onAuthStateChanged((user) => {
           if (user) {
             this.currentUser = user;
             this.currentUserEmail = user.email;
-            localStorage.setItem('hogarduo_user_email', user.email);
-            
-            // Cargar datos del perfil del usuario
+            try { localStorage.setItem('hogarduo_user_email', user.email); } catch(e) {}
             this.loadUserHouseholdProfile(user.uid);
-            this.showMainApp();
-            this.connect();
           } else {
-            this.currentUser = null;
-            this.currentUserEmail = null;
-            this.showAuthGateway();
+            // Auto login anónimo para que la app siempre esté conectada y hermosa
+            firebase.auth().signInAnonymously().catch(() => {});
           }
+          this.connect();
         });
+      } else {
+        this.connect();
       }
     } catch (e) {
       console.warn('Firebase init warning:', e);
-      this.showMainApp();
+      this.connect();
     }
   },
 
@@ -173,8 +168,53 @@ const CloudSync = {
         App.triggerConfetti();
       }
     } catch (err) {
+      // Si el correo ya existe, iniciar sesión automáticamente y vincular
+      if (err.code === 'auth/email-already-in-use') {
+        try {
+          const userCredential = await firebase.auth().signInWithEmailAndPassword(email.trim(), password);
+          const user = userCredential.user;
+
+          this.householdCode = (householdCode || '19125118').trim().toUpperCase();
+          this.currentUserId = role || 'p1';
+
+          localStorage.setItem('hogarduo_household_code', this.householdCode);
+          localStorage.setItem('hogarduo_user_id', this.currentUserId);
+
+          if (Store.state?.profiles?.[this.currentUserId]) {
+            Store.state.profiles[this.currentUserId].name = name.trim();
+            Store.state.profiles[this.currentUserId].email = email.trim();
+            if (phone) Store.state.profiles[this.currentUserId].phone = phone.trim();
+            Store.save();
+          }
+
+          await firebase.database().ref(`users/${user.uid}`).update({
+            email: email.trim(),
+            householdCode: this.householdCode,
+            role: this.currentUserId,
+            name: name.trim(),
+            phone: phone || ''
+          });
+
+          this.broadcastChange('PROFILE_REGISTERED', Store.state);
+
+          if (typeof App !== 'undefined') {
+            App.showToast(`🎉 ¡Bienvenida de vuelta, ${name}! Hogar: ${this.householdCode}`, 'success');
+            App.triggerConfetti();
+          }
+          return;
+        } catch (loginErr) {
+          if (typeof App !== 'undefined') {
+            App.showToast('Este correo ya está registrado. Ve a la pestaña "🔑 Entrar" o usa Google', 'info');
+          }
+          setAuthTab('login');
+          const loginEmail = document.getElementById('auth-login-email');
+          if (loginEmail) loginEmail.value = email;
+          return;
+        }
+      }
+
       console.error('Register error:', err);
-      if (typeof App !== 'undefined') App.showToast(`Error al registrarse: ${err.message}`, 'warning');
+      if (typeof App !== 'undefined') App.showToast(`Error: ${err.message}`, 'warning');
     }
   },
 
