@@ -240,7 +240,7 @@ const Notes = {
       Store.save();
 
       // Sincronizar en vivo con el celular de la pareja
-      CloudSync.broadcastChange('NEW_NOTE', Store.state);
+      CloudSync.broadcastChange('NEW_NOTE', { note: newNote });
       App.showToast('¡Mensaje enviado a la pantalla de inicio! 💌', 'success');
     }
 

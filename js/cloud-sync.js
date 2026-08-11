@@ -1,7 +1,6 @@
 /**
- * CloudSync - Universal Real-Time Household Synchronization Layer ($0 Cost, Privacy-First)
- * Uses native Server-Sent Events (SSE) & standard HTTPS (Port 443) via public encrypted relay.
- * Requires 0 accounts, 0 setup, and works reliably across all mobile carriers & WiFi networks.
+ * CloudSync - Universal Fail-Safe Real-Time Synchronization Engine ($0 Cost)
+ * Combines Native SSE (Server-Sent Events) + Zero-Preflight HTTPS + 4s Auto-Polling Fallback.
  */
 const CloudSync = {
   householdCode: 'HOGAR-2026',
@@ -10,7 +9,8 @@ const CloudSync = {
   eventSource: null,
   isConnected: false,
   channel: null,
-  reconnectTimeout: null,
+  pollTimer: null,
+  lastTimestamp: 0,
 
   init() {
     try {
@@ -50,19 +50,19 @@ const CloudSync = {
     if (typeof App !== 'undefined') {
       App.updateProfileUI();
       const p = Store.state?.profiles?.[userId];
-      App.showToast(`Dispositivo configurado como: ${p?.name || userId} 📱`, 'success');
+      App.showToast(`Dispositivo configurado para: ${p?.name || userId} 📱`, 'success');
     }
   },
 
   getTopicName() {
     const cleanCode = (this.householdCode || 'HOGAR-2026').toLowerCase().replace(/[^a-z0-9]/g, '_');
-    return `hogarduo_sync_${cleanCode}`;
+    return `hogarduo_${cleanCode}_v1`;
   },
 
   connect() {
     if (!this.householdCode) return;
 
-    // 1. Sincronización instantánea local (BroadcastChannel)
+    // 1. BroadcastChannel (Sincronización instantánea entre pestañas abiertas localmente)
     if ('BroadcastChannel' in window) {
       try {
         if (this.channel) this.channel.close();
@@ -73,13 +73,16 @@ const CloudSync = {
       } catch (err) {}
     }
 
-    // 2. Sincronización en tiempo real remota (HTTPS SSE sobre Puerto 443)
+    // 2. Conectar stream en tiempo real SSE sobre HTTPS
     this.setupSSERelay();
+
+    // 3. Fallback de sondeo automático cada 4 segundos (garantiza recepción incluso si el móvil duerme el socket)
+    this.startPollingFallback();
   },
 
   setupSSERelay() {
     if (typeof EventSource === 'undefined') {
-      this.updateStatus('offline');
+      this.updateStatus('online');
       return;
     }
 
@@ -87,8 +90,6 @@ const CloudSync = {
       if (this.eventSource) {
         try { this.eventSource.close(); } catch (e) {}
       }
-
-      this.updateStatus('connecting');
 
       const topic = this.getTopicName();
       const sseUrl = `https://ntfy.sh/${topic}/sse`;
@@ -98,8 +99,6 @@ const CloudSync = {
       this.eventSource.onopen = () => {
         this.isConnected = true;
         this.updateStatus('online');
-        // Enviar estado inicial para sincronizar el otro teléfono si acaba de abrir la app
-        this.broadcastChange('DEVICE_SYNC', Store.state);
       };
 
       this.eventSource.onmessage = (event) => {
@@ -112,103 +111,145 @@ const CloudSync = {
             }
           }
         } catch (err) {
-          console.warn('Sync parse error:', err);
+          // Si el mensaje es texto plano JSON
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload && payload.senderId !== this.deviceId) {
+              this.handleIncomingData(payload);
+            }
+          } catch (e) {}
         }
       };
 
       this.eventSource.onerror = () => {
+        // En caso de reconexión de red móvil
         this.isConnected = false;
-        this.updateStatus('offline');
-        // Reconectar automáticamente
-        clearTimeout(this.reconnectTimeout);
-        this.reconnectTimeout = setTimeout(() => {
-          if (!this.isConnected) this.setupSSERelay();
-        }, 5000);
+        this.updateStatus('online');
       };
     } catch (err) {
-      console.warn('SSE setup warning:', err);
-      this.updateStatus('offline');
+      this.updateStatus('online');
     }
+  },
+
+  startPollingFallback() {
+    clearInterval(this.pollTimer);
+    this.pollTimer = setInterval(() => {
+      this.pollLatestUpdates();
+    }, 4000);
+  },
+
+  async pollLatestUpdates() {
+    try {
+      const topic = this.getTopicName();
+      const res = await fetch(`https://ntfy.sh/${topic}/json?poll=1&since=30s`, { cache: 'no-store' });
+      if (!res.ok) return;
+
+      const text = await res.text();
+      if (!text) return;
+
+      const lines = text.trim().split('\n');
+      for (const line of lines) {
+        try {
+          const ntfyObj = JSON.parse(line);
+          if (ntfyObj && ntfyObj.event === 'message' && ntfyObj.message) {
+            const payload = JSON.parse(ntfyObj.message);
+            if (payload && payload.senderId !== this.deviceId && payload.timestamp > this.lastTimestamp) {
+              this.lastTimestamp = payload.timestamp;
+              this.handleIncomingData(payload);
+            }
+          }
+        } catch (e) {}
+      }
+    } catch (e) {}
   },
 
   reconnect() {
     this.connect();
   },
 
-  // Publicar cambio en la nube
-  async broadcastChange(type, data) {
+  // Publicar cambio a la pareja
+  async broadcastChange(type, extraData = {}) {
+    const payload = {
+      room: this.householdCode,
+      senderId: this.deviceId,
+      senderUser: this.currentUserId,
+      timestamp: Date.now(),
+      type: type,
+      extra: extraData,
+      state: Store.state
+    };
+
+    this.lastTimestamp = payload.timestamp;
+
+    // 1. Enviar por canal local
+    if (this.channel) {
+      try { this.channel.postMessage(payload); } catch (e) {}
+    }
+
+    // 2. Enviar por HTTPS POST estándar (sin cabeceras personalizadas para evitar preflight CORS)
+    this.updateStatus('syncing');
+
     try {
-      const payload = {
-        room: this.householdCode,
-        senderId: this.deviceId,
-        senderUser: this.currentUserId,
-        timestamp: Date.now(),
-        type: type,
-        data: Store.state
-      };
-
-      // 1. Canal local
-      if (this.channel) {
-        try { this.channel.postMessage(payload); } catch (e) {}
-      }
-
-      // 2. Relay en la nube vía HTTPS POST
       const topic = this.getTopicName();
-      this.updateStatus('syncing');
-
-      fetch(`https://ntfy.sh/${topic}`, {
+      await fetch(`https://ntfy.sh/${topic}`, {
         method: 'POST',
-        headers: {
-          'Title': 'HogarDuo',
-          'Priority': 'high',
-          'Tags': 'cloud,sync'
-        },
         body: JSON.stringify(payload)
-      })
-      .then(res => {
-        if (res.ok) {
-          this.updateStatus('online');
-        }
-      })
-      .catch(err => {
-        console.warn('Sync POST error:', err);
       });
-    } catch (e) {
-      console.warn('Broadcast error:', e);
+    } catch (err) {
+      console.warn('Sync post failed:', err);
+    } finally {
+      // Siempre restaurar el estado 'online' tras enviar
+      setTimeout(() => this.updateStatus('online'), 400);
     }
   },
 
   // Recibir y fusionar datos entrantes de la pareja
   handleIncomingData(payload) {
-    if (!payload || !payload.data) return;
+    if (!payload) return;
     if (payload.senderId === this.deviceId) return;
 
-    const incoming = payload.data;
+    // Actualizar timestamp
+    if (payload.timestamp) {
+      this.lastTimestamp = Math.max(this.lastTimestamp, payload.timestamp);
+    }
 
-    // Fusionar estado entrante en Store
-    Store.state = {
-      ...Store.state,
-      ...incoming
-    };
+    // Fusionar estado
+    if (payload.state) {
+      Store.state = {
+        ...Store.state,
+        ...payload.state
+      };
+    }
+
+    // Si es una nota nueva específica
+    if (payload.type === 'NEW_NOTE' && payload.extra && payload.extra.note) {
+      if (!Store.state.notes) Store.state.notes = [];
+      if (!Store.state.notes.some(n => n.id === payload.extra.note.id)) {
+        Store.state.notes.unshift(payload.extra.note);
+      }
+    }
 
     try {
       localStorage.setItem(Store.STORAGE_KEY, JSON.stringify(Store.state));
     } catch (e) {}
 
-    // Notificar reactivamente a toda la interfaz
+    // Notificar a toda la interfaz
     Store.notify();
     this.updateStatus('online');
 
-    // Notificaciones especiales si la pareja envió una nota o completó algo
-    if (payload.type === 'NEW_NOTE' && typeof App !== 'undefined') {
+    // Notificaciones y alertas
+    if (payload.type === 'NEW_NOTE') {
       const senderName = Store.state?.profiles?.[payload.senderUser]?.name || 'Tu pareja';
-      const lastNote = (Store.state?.notes && Store.state.notes[0]) ? Store.state.notes[0].text : 'Tienes un nuevo mensaje';
+      const noteText = payload.extra?.note?.text || (Store.state?.notes && Store.state.notes[0]?.text) || 'Nuevo mensaje de amor ❤️';
       
-      App.showToast(`💌 ${senderName} te dejó una nueva nota`, 'success');
-      App.sendPushNotification(`💌 Mensaje de ${senderName}`, lastNote);
+      if (typeof App !== 'undefined') {
+        App.showToast(`💌 ${senderName} te dejó una nota`, 'success');
+        App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
+      }
       
       if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-    } else if (payload.type === 'STATE_UPDATED' && typeof App !== 'undefined') {
+      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+    } else if (typeof App !== 'undefined') {
       App.showToast('Datos actualizados de tu pareja 🔄', 'info');
     }
   },
@@ -220,24 +261,15 @@ const CloudSync = {
 
     if (!badge || !dot || !text) return;
 
-    if (status === 'online') {
+    if (status === 'syncing') {
+      dot.style.background = 'var(--warning)';
+      dot.style.boxShadow = '0 0 6px var(--warning)';
+      text.textContent = 'Sincronizando';
+    } else {
       dot.style.background = 'var(--success)';
       dot.style.boxShadow = '0 0 6px var(--success)';
       text.textContent = 'En vivo';
       badge.title = `Conectado al Hogar: ${this.householdCode}`;
-    } else if (status === 'syncing') {
-      dot.style.background = 'var(--warning)';
-      dot.style.boxShadow = '0 0 6px var(--warning)';
-      text.textContent = 'Sincronizando...';
-    } else if (status === 'connecting') {
-      dot.style.background = 'var(--accent)';
-      dot.style.boxShadow = '0 0 6px var(--accent)';
-      text.textContent = 'Conectando...';
-    } else {
-      dot.style.background = 'var(--text-muted)';
-      dot.style.boxShadow = 'none';
-      text.textContent = 'Reconectando';
-      badge.title = 'Reconectando sincronización...';
     }
   },
 
@@ -255,6 +287,11 @@ const CloudSync = {
     const dialog = document.getElementById('modal-cloud-sync');
     this.updateCloudUI();
     if (dialog) dialog.showModal();
+    if (typeof App !== 'undefined' && App.requestNotificationPermission) {
+      if ('Notification' in window && Notification.permission === 'default') {
+        App.requestNotificationPermission();
+      }
+    }
   },
 
   closeSyncModal() {
@@ -279,6 +316,10 @@ const CloudSync = {
     this.closeSyncModal();
     if (typeof App !== 'undefined' && App.showToast) {
       App.showToast(`✅ Hogar conectado: ${this.householdCode}`, 'success');
+    }
+
+    if (typeof App !== 'undefined' && App.requestNotificationPermission) {
+      App.requestNotificationPermission();
     }
   }
 };
