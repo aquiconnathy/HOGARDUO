@@ -230,26 +230,24 @@ const CloudSync = {
     Store.notify();
     this.updateStatus('online');
 
-    // 2. Notificar si hay una nota nueva enviada por la pareja
+    // 2. Notificar si hay una nota nueva enviada desde el otro dispositivo
     const incomingNote = payload.extra?.note || (Store.state?.notes && Store.state.notes[0]);
     if (incomingNote && incomingNote.id && incomingNote.id !== this.lastNotifiedNoteId) {
-      // Solo notificar si la escribió la pareja (no este dispositivo)
-      if (incomingNote.author !== this.currentUserId) {
-        this.lastNotifiedNoteId = incomingNote.id;
-        try { localStorage.setItem('hogarduo_last_notified_note', incomingNote.id); } catch(e) {}
+      this.lastNotifiedNoteId = incomingNote.id;
+      try { localStorage.setItem('hogarduo_last_notified_note', incomingNote.id); } catch(e) {}
 
-        const senderName = Store.state?.profiles?.[incomingNote.author]?.name || (incomingNote.author === 'p1' ? 'Ella' : 'Él');
-        const noteText = incomingNote.text || 'Nuevo mensaje de amor ❤️';
+      const authorKey = incomingNote.author || payload.senderUser || 'p1';
+      const senderName = Store.state?.profiles?.[authorKey]?.name || (authorKey === 'p1' ? 'Ella' : 'Él');
+      const noteText = incomingNote.text || 'Nuevo mensaje de amor ❤️';
 
-        if (typeof App !== 'undefined') {
-          App.showToast(`💌 ${senderName}: "${noteText}"`, 'success');
-          App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
-        }
-        
-        if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-        return;
+      if (typeof App !== 'undefined') {
+        App.showToast(`💌 ${senderName}: "${noteText}"`, 'success');
+        App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
       }
+      
+      if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+      return;
     }
 
     if (typeof App !== 'undefined') {
@@ -353,11 +351,6 @@ const CloudSync = {
     const dialog = document.getElementById('modal-cloud-sync');
     this.updateCloudUI();
     if (dialog) dialog.showModal();
-    if (typeof App !== 'undefined' && App.requestNotificationPermission) {
-      if ('Notification' in window && Notification.permission === 'default') {
-        App.requestNotificationPermission();
-      }
-    }
   },
 
   closeSyncModal() {
@@ -382,10 +375,6 @@ const CloudSync = {
     this.closeSyncModal();
     if (typeof App !== 'undefined' && App.showToast) {
       App.showToast(`✅ Hogar conectado a Firebase: ${this.householdCode}`, 'success');
-    }
-
-    if (typeof App !== 'undefined' && App.requestNotificationPermission) {
-      App.requestNotificationPermission();
     }
   }
 };
