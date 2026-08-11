@@ -1,6 +1,6 @@
 /**
- * CloudSync - Google Firebase Realtime Engine + Vercel Serverless Web Push (/api/push)
- * Hardware-level push notifications waking up the phone when locked and app is closed.
+ * CloudSync - Google Firebase Realtime Engine + Google Auth + Google Calendar Synchronization
+ * Direct Google Calendar hardware-level alarms and cross-device synchronization for couples.
  */
 const CloudSync = {
   firebaseConfig: {
@@ -14,15 +14,15 @@ const CloudSync = {
     measurementId: "G-1E7PXG23FV"
   },
 
-  // Clave Pública VAPID estándar para Web Push
   vapidKey: "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuYkr3qBUYIhbQFLXYp5Nksh8U",
 
   householdCode: '19125118',
   sessionId: null,
   currentUserId: 'p1', // 'p1' (Ella) o 'p2' (Él)
+  currentUserEmail: null,
+  partnerEmail: null,
+  googleAccessToken: null,
   dbRef: null,
-  mySubscription: null,
-  partnerSubscription: null,
   isConnected: false,
   isInitialized: false,
   lastNotifiedNoteId: null,
@@ -32,6 +32,8 @@ const CloudSync = {
       this.sessionId = 'ses_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
       this.householdCode = (localStorage.getItem('hogarduo_household_code') || '19125118').trim().toUpperCase();
       this.currentUserId = localStorage.getItem('hogarduo_user_id') || 'p1';
+      this.currentUserEmail = localStorage.getItem('hogarduo_user_email') || null;
+      this.googleAccessToken = localStorage.getItem('hogarduo_g_token') || null;
       this.lastNotifiedNoteId = localStorage.getItem('hogarduo_last_notified_note') || null;
 
       // 1. Detectar auto-vinculación por Código QR
@@ -42,7 +44,10 @@ const CloudSync = {
 
       this.updateCloudUI();
       this.initFirebase();
-      setTimeout(() => this.updateDiagnosticsUI(), 300);
+      setTimeout(() => {
+        this.updateDiagnosticsUI();
+        this.updateAuthUI();
+      }, 300);
     } catch (e) {
       console.warn('CloudSync init error:', e);
     }
@@ -109,67 +114,183 @@ const CloudSync = {
       this.isInitialized = true;
       this.updateStatus('connecting');
 
+      // Escuchar estado de autenticación de Firebase
       if (firebase.auth) {
-        firebase.auth().signInAnonymously().catch(() => {});
+        firebase.auth().onAuthStateChanged((user) => {
+          if (user) {
+            this.currentUserEmail = user.email;
+            try { localStorage.setItem('hogarduo_user_email', user.email); } catch(e) {}
+            this.updateAuthUI();
+            this.saveUserEmailToHousehold();
+          } else {
+            // Iniciar sesión anónima si no hay usuario de Google activo
+            firebase.auth().signInAnonymously().catch(() => {});
+          }
+        });
       }
 
       this.connect();
-      this.registerWebPushSubscription();
     } catch (e) {
       console.warn('Firebase init warning:', e);
       this.updateStatus('online');
     }
   },
 
-  // Convertir VAPID Base64 a Uint8Array
-  urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
+  // Iniciar Sesión con Google (con permisos para Google Calendar)
+  async signInWithGoogle() {
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      if (typeof App !== 'undefined') App.showToast('Firebase Auth no disponible', 'warning');
+      return;
     }
-    return outputArray;
-  },
 
-  // Registrar suscripción de hardware Web Push en Google/Apple
-  async registerWebPushSubscription() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/calendar.events');
 
     try {
-      if ('Notification' in window && Notification.permission === 'granted') {
-        const registration = await navigator.serviceWorker.ready;
-        
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: this.urlBase64ToUint8Array(this.vapidKey)
-          });
-        }
+      const result = await firebase.auth().signInWithPopup(provider);
+      const user = result.user;
+      const credential = result.credential;
 
-        if (subscription) {
-          this.mySubscription = subscription.toJSON();
-          this.savePushSubscription(this.mySubscription);
+      if (credential && credential.accessToken) {
+        this.googleAccessToken = credential.accessToken;
+        try { localStorage.setItem('hogarduo_g_token', credential.accessToken); } catch(e) {}
+      }
+
+      this.currentUserEmail = user.email;
+      try { localStorage.setItem('hogarduo_user_email', user.email); } catch(e) {}
+
+      // Actualizar perfil local
+      if (Store.state && Store.state.profiles) {
+        const profile = Store.state.profiles[this.currentUserId];
+        if (profile) {
+          profile.email = user.email;
+          if (user.displayName) profile.name = user.displayName.split(' ')[0];
+          Store.save();
         }
       }
+
+      this.updateAuthUI();
+      this.saveUserEmailToHousehold();
+      
+      if (typeof App !== 'undefined') {
+        App.showToast(`✅ Conectado con Google: ${user.email} 📅`, 'success');
+        App.triggerConfetti();
+        App.updateProfileUI();
+      }
     } catch (err) {
-      console.warn('Web Push subscription skipped:', err);
+      console.warn('Google sign in error:', err);
+      if (typeof App !== 'undefined') {
+        App.showToast(`Aviso: ${err.message}`, 'warning');
+      }
     }
-    this.updateDiagnosticsUI();
   },
 
-  // Guardar suscripción Web Push en Firebase
-  savePushSubscription(subscription) {
-    if (!subscription || !this.isInitialized || !firebase.database) return;
+  // Cerrar Sesión de Google
+  async signOutGoogle() {
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      await firebase.auth().signOut();
+    }
+    this.currentUserEmail = null;
+    this.googleAccessToken = null;
+    try {
+      localStorage.removeItem('hogarduo_g_token');
+      localStorage.removeItem('hogarduo_user_email');
+    } catch(e) {}
+    this.updateAuthUI();
+    if (typeof App !== 'undefined') {
+      App.showToast('Sesión de Google cerrada', 'info');
+      App.updateProfileUI();
+    }
+  },
+
+  updateAuthUI() {
+    const emailEl = document.getElementById('google-user-email-display');
+    const btnLogin = document.getElementById('btn-google-login');
+    const btnLogout = document.getElementById('btn-google-logout');
+    const partnerEmailIn = document.getElementById('partner-email-input');
+
+    if (emailEl) {
+      emailEl.textContent = this.currentUserEmail ? `🟢 Conectado: ${this.currentUserEmail}` : '⚪ No conectado';
+    }
+    if (btnLogin) btnLogin.style.display = this.currentUserEmail ? 'none' : 'flex';
+    if (btnLogout) btnLogout.style.display = this.currentUserEmail ? 'inline-block' : 'none';
+    if (partnerEmailIn && this.partnerEmail && !partnerEmailIn.value) {
+      partnerEmailIn.value = this.partnerEmail;
+    }
+  },
+
+  saveUserEmailToHousehold() {
+    if (!this.currentUserEmail || !this.isInitialized || !firebase.database) return;
     try {
       const houseKey = this.getCleanHouseholdKey();
-      firebase.database().ref(`households/${houseKey}/subscriptions/${this.currentUserId}`).set({
-        ...subscription,
-        updatedAt: Date.now()
-      });
+      firebase.database().ref(`households/${houseKey}/emails/${this.currentUserId}`).set(this.currentUserEmail);
     } catch (e) {}
+  },
+
+  // Programar Alarma en Google Calendar (Ambos Celulares)
+  async createGoogleCalendarEvent(title, description, reminderTimeISO) {
+    if (!reminderTimeISO) return null;
+
+    const startDate = new Date(reminderTimeISO);
+    const endDate = new Date(startDate.getTime() + 30 * 60000); // 30 min de duración
+
+    const partnerEmail = this.partnerEmail || (document.getElementById('partner-email-input')?.value.trim()) || '';
+
+    // 1. Si tenemos el token de Google Calendar API, crear directamente en la nube
+    if (this.googleAccessToken) {
+      try {
+        const attendees = [];
+        if (partnerEmail && partnerEmail.includes('@')) {
+          attendees.push({ email: partnerEmail });
+        }
+
+        const eventBody = {
+          summary: `💑 HogarDúo: ${title}`,
+          description: `${description || 'Recordatorio de HogarDúo'}\n\nCreado desde la app del hogar 🏡`,
+          start: { dateTime: startDate.toISOString() },
+          end: { dateTime: endDate.toISOString() },
+          attendees: attendees,
+          reminders: {
+            useDefault: false,
+            overrides: [
+              { method: 'popup', minutes: 0 },
+              { method: 'popup', minutes: 10 }
+            ]
+          }
+        };
+
+        const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.googleAccessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(eventBody)
+        });
+
+        if (res.ok) {
+          if (typeof App !== 'undefined') {
+            App.showToast(`📅 ¡Alarma guardada en Google Calendar para ambos!`, 'success');
+          }
+          return true;
+        }
+      } catch (e) {
+        console.warn('Direct Calendar API failed, falling back to Web Intent:', e);
+      }
+    }
+
+    // 2. Enlace Directo de Google Calendar Web (1-Tap Fallback sin configuraciones)
+    const formatGTime = (d) => d.toISOString().replace(/-|:|\.\d+/g, '');
+    const startG = formatGTime(startDate);
+    const endG = formatGTime(endDate);
+
+    let intentUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('💑 HogarDúo: ' + title)}&dates=${startG}/${endG}&details=${encodeURIComponent(description || 'Recordatorio de HogarDúo')}`;
+    
+    if (partnerEmail && partnerEmail.includes('@')) {
+      intentUrl += `&add=${encodeURIComponent(partnerEmail)}`;
+    }
+
+    return intentUrl;
   },
 
   setHouseholdCode(code) {
@@ -180,7 +301,6 @@ const CloudSync = {
     } catch (e) {}
     this.updateCloudUI();
     this.connect();
-    this.registerWebPushSubscription();
   },
 
   setCurrentUser(userId) {
@@ -194,7 +314,6 @@ const CloudSync = {
       const p = Store.state?.profiles?.[userId];
       App.showToast(`Dispositivo configurado como: ${p?.name || userId} 📱`, 'success');
     }
-    this.registerWebPushSubscription();
   },
 
   getCleanHouseholdKey() {
@@ -234,16 +353,11 @@ const CloudSync = {
       // 1. Descarga inicial segura
       this.fetchCloudStateOnce();
 
-      // 2. Escuchar suscripción de la pareja para enviarle push en segundo plano
+      // 2. Escuchar correo de la pareja
       const partnerRole = this.currentUserId === 'p1' ? 'p2' : 'p1';
-      firebase.database().ref(`households/${houseKey}/subscriptions/${partnerRole}`).on('value', (snap) => {
-        const data = snap.val();
-        if (data && data.endpoint) {
-          this.partnerSubscription = data;
-        } else {
-          this.partnerSubscription = null;
-        }
-        this.updateDiagnosticsUI();
+      firebase.database().ref(`households/${houseKey}/emails/${partnerRole}`).on('value', (snap) => {
+        this.partnerEmail = snap.val() || null;
+        this.updateAuthUI();
       });
 
       // 3. Estado de conexión con Google
@@ -273,7 +387,6 @@ const CloudSync = {
     }
   },
 
-  // Fusión inteligente Delta-Merging
   mergeIncomingState(cloudState) {
     if (!cloudState) return;
 
@@ -341,45 +454,7 @@ const CloudSync = {
           console.warn('Firebase write error:', err);
           this.updateStatus('online');
         });
-
-      // Si es una nota o recordatorio nuevo, disparar Web Push a Vercel Serverless
-      if (type === 'NEW_NOTE' && extraData && extraData.note) {
-        const senderName = Store.state?.profiles?.[this.currentUserId]?.name || (this.currentUserId === 'p1' ? 'Ella' : 'Él');
-        const noteText = extraData.note.text || 'Nuevo mensaje de amor ❤️';
-        this.sendBackgroundPushTrigger(senderName, noteText);
-      }
     }
-  },
-
-  // Envía la orden a la función Vercel Serverless (/api/push) para despertar el teléfono bloqueado
-  sendBackgroundPushTrigger(senderName, noteText) {
-    const partnerRole = this.currentUserId === 'p1' ? 'p2' : 'p1';
-
-    // 1. Disparo a través de la función de servidor en Vercel (/api/push)
-    fetch('/api/push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        householdCode: this.householdCode,
-        targetUser: partnerRole,
-        title: `💌 Mensaje de ${senderName}`,
-        body: noteText,
-        icon: 'icons/icon.svg',
-        url: './index.html'
-      })
-    }).catch(() => {});
-
-    // 2. Disparo redundante por puente de alta prioridad
-    const houseKey = this.getCleanHouseholdKey();
-    fetch(`https://ntfy.sh/hogarduo_push_${houseKey}_${partnerRole}`, {
-      method: 'POST',
-      headers: {
-        'Title': `💌 Mensaje de ${senderName}`,
-        'Priority': 'urgent',
-        'Tags': 'heart,love,couple'
-      },
-      body: noteText
-    }).catch(() => {});
   },
 
   handleIncomingData(payload) {
@@ -394,21 +469,7 @@ const CloudSync = {
     Store.notify();
     this.updateStatus('online');
 
-    // 1. Prueba de Notificación Push
-    if (payload.type === 'TEST_PUSH') {
-      const senderName = payload.extra?.sender || (this.currentUserId === 'p1' ? 'Él' : 'Ella');
-      const message = payload.extra?.message || '¡Prueba de Notificación de tu Pareja! ❤️';
-
-      if (typeof App !== 'undefined') {
-        App.showInAppBanner(senderName, message, 'love');
-        App.sendPushNotification(`💌 Prueba de ${senderName}`, message);
-      }
-      if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-      return;
-    }
-
-    // 2. Notificación de Nota Nueva
+    // Notificación de Nota / Recordatorio en Vivo
     const incomingNote = payload.extra?.note || (Store.state?.notes && Store.state.notes[0]);
     if (incomingNote && incomingNote.id && incomingNote.id !== this.lastNotifiedNoteId) {
       this.lastNotifiedNoteId = incomingNote.id;
@@ -434,18 +495,6 @@ const CloudSync = {
     }
   },
 
-  testPushToPartner() {
-    const senderName = Store.state?.profiles?.[this.currentUserId]?.name || (this.currentUserId === 'p1' ? 'Ella' : 'Él');
-    const msg = '¡Prueba de Notificación Push a tu pantalla de bloqueo! ❤️';
-    
-    this.broadcastChange('TEST_PUSH', { sender: senderName, message: msg });
-    this.sendBackgroundPushTrigger(senderName, msg);
-    
-    if (typeof App !== 'undefined') {
-      App.showToast(`🚀 ¡Notificación de prueba enviada al celular de ${senderName === 'Ella' ? 'Él' : 'Ella'}!`, 'success');
-    }
-  },
-
   updateDiagnosticsUI() {
     const permEl = document.getElementById('diag-perm-status');
     const swEl = document.getElementById('diag-sw-status');
@@ -454,13 +503,13 @@ const CloudSync = {
 
     const hasPerm = 'Notification' in window && Notification.permission === 'granted';
     const hasSW = 'serviceWorker' in navigator;
-    const hasPush = !!this.mySubscription || (hasPerm && hasSW);
-    const hasPartner = !!this.partnerSubscription;
+    const hasAuth = !!this.currentUserEmail;
+    const hasPartner = !!this.partnerEmail;
 
     if (permEl) permEl.innerHTML = hasPerm ? '🟢 Concedido' : '🔴 No activado';
     if (swEl) swEl.innerHTML = hasSW ? '🟢 Activo' : '🔴 Inactivo';
-    if (fcmEl) fcmEl.innerHTML = hasPush ? '🟢 Listo (Web Push)' : '🟡 Pendiente';
-    if (partnerEl) partnerEl.innerHTML = hasPartner ? '🟢 Celular Vinculado' : '🟡 Esperando conexión';
+    if (fcmEl) fcmEl.innerHTML = hasAuth ? '🟢 Conectado con Google' : '🟡 Pendiente';
+    if (partnerEl) partnerEl.innerHTML = hasPartner ? '🟢 Pareja Vinculada' : '🟡 Esperando conexión';
   },
 
   getInviteLink() {
@@ -565,6 +614,7 @@ const CloudSync = {
   saveSyncSettings() {
     const codeInput = document.getElementById('household-code-input');
     const userSelect = document.getElementById('device-owner-select');
+    const partnerEmailIn = document.getElementById('partner-email-input');
 
     const code = codeInput ? codeInput.value.trim() : '';
     const user = userSelect ? userSelect.value : 'p1';
@@ -574,6 +624,9 @@ const CloudSync = {
     }
     if (user) {
       this.setCurrentUser(user);
+    }
+    if (partnerEmailIn && partnerEmailIn.value.trim()) {
+      this.partnerEmail = partnerEmailIn.value.trim();
     }
 
     this.broadcastChange('ROOM_UPDATED', Store.state);
