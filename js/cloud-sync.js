@@ -1,6 +1,6 @@
 /**
  * CloudSync - Google Firebase Official Realtime Engine + Instant QR Couple Pairing
- * Connects both phones via Google Firebase (Port 443 HTTPS) + 1-Tap QR Magic Link.
+ * Bulletproof multi-device state synchronization & push notification dispatcher.
  */
 const CloudSync = {
   firebaseConfig: {
@@ -15,19 +15,21 @@ const CloudSync = {
   },
 
   householdCode: 'HOGAR-2026',
-  deviceId: null,
+  sessionId: null,
   currentUserId: 'p1', // 'p1' o 'p2'
   dbRef: null,
   isConnected: false,
   isInitialized: false,
+  lastHandledTimestamp: 0,
 
   init() {
     try {
-      this.deviceId = 'dev_' + (localStorage.getItem('hogarduo_device_id') || this.generateId());
-      localStorage.setItem('hogarduo_device_id', this.deviceId);
+      // Identificador de sesión único e irrepetible para este dispositivo físico
+      this.sessionId = 'ses_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
 
       this.householdCode = (localStorage.getItem('hogarduo_household_code') || 'HOGAR-2026').trim().toUpperCase();
       this.currentUserId = localStorage.getItem('hogarduo_user_id') || 'p1';
+      this.lastHandledTimestamp = Date.now() - 1000;
 
       // 1. Detectar si el usuario abrió la app escaneando un Código QR o enlace de invitación
       this.checkUrlInviteParams();
@@ -37,10 +39,6 @@ const CloudSync = {
     } catch (e) {
       console.warn('CloudSync init error:', e);
     }
-  },
-
-  generateId() {
-    return Math.random().toString(36).substring(2, 9);
   },
 
   // Auto-Login / Vinculación con Código QR o Enlace Mágico
@@ -88,10 +86,10 @@ const CloudSync = {
       this.isInitialized = true;
       this.updateStatus('connecting');
 
-      // Autenticación anónima segura de Google Firebase
-      firebase.auth().signInAnonymously().catch(err => {
-        console.log('Firebase Auth:', err.message);
-      });
+      // Intentar autenticación silenciosa si está habilitada
+      if (firebase.auth) {
+        firebase.auth().signInAnonymously().catch(() => {});
+      }
 
       this.connect();
     } catch (e) {
@@ -156,10 +154,10 @@ const CloudSync = {
         }
       });
 
-      // Escuchar cambios en vivo de la pareja
+      // Escuchar cambios en vivo emitidos en este hogar
       this.dbRef.on('value', (snapshot) => {
         const payload = snapshot.val();
-        if (payload && payload.senderId !== this.deviceId) {
+        if (payload) {
           this.handleIncomingData(payload);
         }
       });
@@ -179,7 +177,7 @@ const CloudSync = {
 
     const payload = {
       room: this.householdCode,
-      senderId: this.deviceId,
+      sessionId: this.sessionId,
       senderUser: this.currentUserId,
       timestamp: Date.now(),
       type: type,
@@ -187,11 +185,13 @@ const CloudSync = {
       state: Store.state
     };
 
+    this.lastHandledTimestamp = payload.timestamp;
+
     if (this.dbRef) {
       this.updateStatus('syncing');
       this.dbRef.set(payload)
         .then(() => {
-          setTimeout(() => this.updateStatus('online'), 300);
+          setTimeout(() => this.updateStatus('online'), 250);
         })
         .catch(err => {
           console.warn('Firebase write warning:', err);
@@ -202,8 +202,17 @@ const CloudSync = {
 
   // Recibir y fusionar datos entrantes de la pareja
   handleIncomingData(payload) {
-    if (!payload || payload.senderId === this.deviceId) return;
+    if (!payload) return;
 
+    // Ignorar si el mensaje fue enviado por esta misma sesión
+    if (payload.sessionId === this.sessionId) return;
+
+    const isNewEvent = payload.timestamp && payload.timestamp > this.lastHandledTimestamp;
+    if (payload.timestamp) {
+      this.lastHandledTimestamp = payload.timestamp;
+    }
+
+    // Fusionar estado entrante en el Store local
     if (payload.state) {
       Store.state = {
         ...Store.state,
@@ -226,18 +235,19 @@ const CloudSync = {
     Store.notify();
     this.updateStatus('online');
 
-    if (payload.type === 'NEW_NOTE') {
-      const senderName = Store.state?.profiles?.[payload.senderUser]?.name || 'Tu pareja';
+    // Notificaciones especiales si la pareja envió una nota
+    if (payload.type === 'NEW_NOTE' && isNewEvent) {
+      const senderName = Store.state?.profiles?.[payload.senderUser]?.name || (payload.senderUser === 'p1' ? 'Ella' : 'Él');
       const noteText = payload.extra?.note?.text || (Store.state?.notes && Store.state.notes[0]?.text) || 'Nuevo mensaje de amor ❤️';
       
       if (typeof App !== 'undefined') {
-        App.showToast(`💌 ${senderName} te dejó una nota`, 'success');
+        App.showToast(`💌 ${senderName} te dejó una nueva nota`, 'success');
         App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
       }
       
       if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
       if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-    } else if (typeof App !== 'undefined') {
+    } else if (isNewEvent && typeof App !== 'undefined') {
       App.showToast('Datos actualizados de tu pareja 🔄', 'info');
     }
   },
