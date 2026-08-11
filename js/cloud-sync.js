@@ -1,6 +1,6 @@
 /**
  * CloudSync - Google Firebase Realtime Engine + Google FCM Cloud Messaging (VAPID)
- * Delivers background push notifications with vibration and sound even when the phone is locked.
+ * Cloud-First Non-Destructive Data Merging & Independent Couple Profiles.
  */
 const CloudSync = {
   firebaseConfig: {
@@ -18,19 +18,21 @@ const CloudSync = {
 
   householdCode: 'HOGAR-2026',
   sessionId: null,
-  currentUserId: 'p1', // 'p1' o 'p2'
+  currentUserId: 'p1', // 'p1' (Ella) o 'p2' (Él)
   dbRef: null,
   messaging: null,
   isConnected: false,
   isInitialized: false,
+  lastNotifiedNoteId: null,
 
   init() {
     try {
       this.sessionId = 'ses_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
       this.householdCode = (localStorage.getItem('hogarduo_household_code') || 'HOGAR-2026').trim().toUpperCase();
       this.currentUserId = localStorage.getItem('hogarduo_user_id') || 'p1';
+      this.lastNotifiedNoteId = localStorage.getItem('hogarduo_last_notified_note') || null;
 
-      // 1. Detectar invitación por Código QR
+      // 1. Detectar si el usuario abrió la app mediante un Código QR o enlace de invitación
       this.checkUrlInviteParams();
 
       this.updateCloudUI();
@@ -40,11 +42,12 @@ const CloudSync = {
     }
   },
 
+  // Auto-Vinculación por Código QR
   checkUrlInviteParams() {
     try {
       const params = new URLSearchParams(window.location.search);
       const inviteCode = params.get('code') || params.get('hogar');
-      const inviteRole = params.get('role');
+      const inviteRole = params.get('role'); // 'p1' o 'p2'
 
       if (inviteCode) {
         this.householdCode = inviteCode.trim().toUpperCase();
@@ -59,7 +62,8 @@ const CloudSync = {
 
         setTimeout(() => {
           if (typeof App !== 'undefined') {
-            App.showToast(`🎉 ¡Vinculado al Hogar "${this.householdCode}"!`, 'success');
+            const roleName = this.currentUserId === 'p1' ? 'Persona 1 (Ella)' : 'Persona 2 (Él)';
+            App.showToast(`🎉 ¡Vinculado al Hogar "${this.householdCode}" como ${roleName}!`, 'success');
             App.triggerConfetti();
             App.updateProfileUI();
           }
@@ -94,7 +98,6 @@ const CloudSync = {
     }
   },
 
-  // Inicializar Google Firebase Cloud Messaging (Push en segundo plano)
   async initFCM() {
     if (typeof firebase === 'undefined' || !firebase.messaging) return;
 
@@ -103,7 +106,6 @@ const CloudSync = {
         const messaging = firebase.messaging();
         this.messaging = messaging;
 
-        // Escuchar mensajes push de Firebase en primer plano
         messaging.onMessage((payload) => {
           const title = payload.notification?.title || payload.data?.title || '💌 Nota de tu pareja';
           const body = payload.notification?.body || payload.data?.body || 'Tienes un nuevo mensaje';
@@ -116,7 +118,6 @@ const CloudSync = {
           if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
         });
 
-        // Registrar Service Worker para FCM
         if ('serviceWorker' in navigator) {
           const registration = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
           const token = await messaging.getToken({
@@ -130,11 +131,10 @@ const CloudSync = {
         }
       }
     } catch (err) {
-      console.warn('FCM registration skipped:', err);
+      console.warn('FCM setup warning:', err);
     }
   },
 
-  // Guardar token FCM del celular en la base de datos
   saveDeviceToken(token) {
     if (!token || !this.isInitialized || !firebase.database) return;
     try {
@@ -165,7 +165,7 @@ const CloudSync = {
     if (typeof App !== 'undefined') {
       App.updateProfileUI();
       const p = Store.state?.profiles?.[userId];
-      App.showToast(`Dispositivo asignado a: ${p?.name || userId} 📱`, 'success');
+      App.showToast(`Dispositivo configurado como: ${p?.name || userId} 📱`, 'success');
     }
   },
 
@@ -173,6 +173,7 @@ const CloudSync = {
     return (this.householdCode || 'HOGAR-2026').toLowerCase().replace(/[^a-z0-9]/g, '_');
   },
 
+  // Conexión Cloud-First: Primero lee los datos existentes para NUNCA sobreescribirlos
   connect() {
     if (!this.isInitialized || typeof firebase === 'undefined' || !firebase.database) {
       this.updateStatus('online');
@@ -190,7 +191,22 @@ const CloudSync = {
 
       try { this.dbRef.keepSynced(true); } catch(e) {}
 
-      // Escuchar conexión activa con Google
+      // 1. Lectura inicial para no sobreescribir lo que hizo el otro celular
+      this.dbRef.once('value').then((snapshot) => {
+        const cloudData = snapshot.val();
+        if (cloudData && cloudData.state) {
+          Store.state = {
+            ...Store.state,
+            ...cloudData.state
+          };
+          try {
+            localStorage.setItem(Store.STORAGE_KEY, JSON.stringify(Store.state));
+          } catch (e) {}
+          Store.notify();
+        }
+      });
+
+      // 2. Estado de conexión con servidores de Google
       const connectedRef = firebase.database().ref('.info/connected');
       connectedRef.on('value', (snap) => {
         if (snap.val() === true) {
@@ -202,7 +218,7 @@ const CloudSync = {
         }
       });
 
-      // Escuchar cambios en vivo emitidos en este hogar
+      // 3. Escuchar cambios en vivo de la pareja
       this.dbRef.on('value', (snapshot) => {
         const payload = snapshot.val();
         if (payload) {
@@ -217,7 +233,7 @@ const CloudSync = {
     }
   },
 
-  // Publicar cambio en la base de datos de Google Firebase
+  // Publicar cambio (solo cuando el usuario realiza una acción deliberada)
   broadcastChange(type, extraData = {}) {
     if (!this.dbRef) {
       this.connect();
@@ -240,7 +256,7 @@ const CloudSync = {
           setTimeout(() => this.updateStatus('online'), 250);
         })
         .catch(err => {
-          console.warn('Firebase write warning:', err);
+          console.warn('Firebase write error:', err);
           this.updateStatus('online');
         });
     }
@@ -253,7 +269,7 @@ const CloudSync = {
     // Ignorar si el mensaje fue enviado por esta misma sesión
     if (payload.sessionId === this.sessionId) return;
 
-    // 1. Fusionar estado entrante en el Store local
+    // 1. Fusionar estado entrante de forma segura
     if (payload.state) {
       Store.state = {
         ...Store.state,
@@ -272,28 +288,31 @@ const CloudSync = {
       localStorage.setItem(Store.STORAGE_KEY, JSON.stringify(Store.state));
     } catch (e) {}
 
-    // Notificar reactivamente a toda la interfaz
+    // Notificar a toda la interfaz
     Store.notify();
     this.updateStatus('online');
 
-    // 2. Notificar si hay una nota nueva enviada desde el otro dispositivo
+    // 2. Notificar si hay una nota nueva enviada por la pareja
     const incomingNote = payload.extra?.note || (Store.state?.notes && Store.state.notes[0]);
     if (incomingNote && incomingNote.id && incomingNote.id !== this.lastNotifiedNoteId) {
-      this.lastNotifiedNoteId = incomingNote.id;
-      try { localStorage.setItem('hogarduo_last_notified_note', incomingNote.id); } catch(e) {}
+      // Verificar que la nota fue escrita por la pareja y no por este usuario
+      if (incomingNote.author !== this.currentUserId) {
+        this.lastNotifiedNoteId = incomingNote.id;
+        try { localStorage.setItem('hogarduo_last_notified_note', incomingNote.id); } catch(e) {}
 
-      const authorKey = incomingNote.author || payload.senderUser || 'p1';
-      const senderName = Store.state?.profiles?.[authorKey]?.name || (authorKey === 'p1' ? 'Ella' : 'Él');
-      const noteText = incomingNote.text || 'Nuevo mensaje de amor ❤️';
+        const authorKey = incomingNote.author || (this.currentUserId === 'p1' ? 'p2' : 'p1');
+        const senderName = Store.state?.profiles?.[authorKey]?.name || (authorKey === 'p1' ? 'Ella' : 'Él');
+        const noteText = incomingNote.text || 'Nuevo mensaje de amor ❤️';
 
-      if (typeof App !== 'undefined') {
-        App.showToast(`💌 ${senderName}: "${noteText}"`, 'success');
-        App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
+        if (typeof App !== 'undefined') {
+          App.showToast(`💌 ${senderName}: "${noteText}"`, 'success');
+          App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
+        }
+        
+        if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+        return;
       }
-      
-      if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-      return;
     }
 
     if (typeof App !== 'undefined') {
