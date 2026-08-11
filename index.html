@@ -143,13 +143,10 @@
         </div>
       </section>
 
-      <!-- 2. VISTA ESPACIO PERSONAL PRIVADO (NUEVA) -->
+      <!-- 2. VISTA ESPACIO PERSONAL PRIVADO -->
       <section id="view-personal" class="tab-view">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">👤 Mi Espacio Personal</h2>
-            <p class="section-desc">Tus compras deseadas, tareas y recordatorios privados (solo tú puedes verlos).</p>
-          </div>
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+          <h2 class="section-title">👤 Mi Espacio Personal</h2>
         </div>
 
         <div class="personal-subtabs">
@@ -211,52 +208,31 @@
 
       <!-- 3. VISTA TAREAS DEL HOGAR -->
       <section id="view-tasks" class="tab-view">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">📋 Tareas del Hogar</h2>
-            <p class="section-desc">Distribución justa en equipo. Toca una tarea para cambiar de turno o usa el Dado.</p>
-          </div>
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+          <h2 class="section-title">📋 Tareas del Hogar</h2>
           <div style="display: flex; gap: 0.4rem;">
             <button class="btn btn-sm btn-outline" onclick="Tasks.openRollDiceModal()">🎲 Sorteo</button>
             <button class="btn btn-sm btn-primary" onclick="Tasks.openCreateModal()">+ Tarea</button>
           </div>
         </div>
 
-        <!-- Canvas de Tareas Compartidas -->
-        <div class="tasks-canvas-grid">
-          <div class="canvas-column p1-column">
-            <div class="column-header">
-              <div class="column-title"><span id="canvas-avatar-p1">👩</span> <span id="canvas-name-p1">Ella</span></div>
-              <span class="task-count-badge" id="badge-count-p1">0</span>
-            </div>
-            <div class="task-cards-container" id="container-tasks-p1"></div>
-          </div>
-
-          <div class="canvas-column p2-column">
-            <div class="column-header">
-              <div class="column-title"><span id="canvas-avatar-p2">👨</span> <span id="canvas-name-p2">Él</span></div>
-              <span class="task-count-badge" id="badge-count-p2">0</span>
-            </div>
-            <div class="task-cards-container" id="container-tasks-p2"></div>
-          </div>
-
-          <div class="canvas-column shared-column">
-            <div class="column-header">
-              <div class="column-title"><span>🤝</span> Juntos</div>
-              <span class="task-count-badge" id="badge-count-both">0</span>
-            </div>
-            <div class="task-cards-container" id="container-tasks-both"></div>
-          </div>
+        <!-- Barra de Filtros Rápidos -->
+        <div class="filter-pill-bar" style="display: flex; gap: 0.35rem; margin-bottom: 0.85rem; overflow-x: auto; scrollbar-width: none;">
+          <button class="pill-btn active" onclick="Tasks.setFilter('all', this)">🌟 Todas</button>
+          <button class="pill-btn" id="filter-p1-btn" onclick="Tasks.setFilter('p1', this)">👩 Ella</button>
+          <button class="pill-btn" id="filter-p2-btn" onclick="Tasks.setFilter('p2', this)">👨 Él</button>
+          <button class="pill-btn" onclick="Tasks.setFilter('both', this)">🤝 Ambos</button>
+          <button class="pill-btn" onclick="Tasks.setFilter('unassigned', this)">🎲 Por Sortear</button>
         </div>
+
+        <!-- Lista de Tareas -->
+        <div class="tasks-list" id="tasks-container"></div>
       </section>
 
       <!-- 4. VISTA DESPENSA INTELIGENTE -->
       <section id="view-pantry" class="tab-view">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">🥫 Despensa del Hogar</h2>
-            <p class="section-desc">Control visual del inventario de víveres y productos básicos.</p>
-          </div>
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+          <h2 class="section-title">🥫 Despensa del Hogar</h2>
           <button class="btn btn-sm btn-primary" onclick="Pantry.openCreateModal()">+ Artículo</button>
         </div>
 
@@ -274,11 +250,8 @@
 
       <!-- 5. VISTA MERCADO & PRESUPUESTO -->
       <section id="view-shopping" class="tab-view">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">🛒 Mercado Quincenal</h2>
-            <p class="section-desc">Lista inteligente con cálculo de presupuesto en Dólares y Bolívares.</p>
-          </div>
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+          <h2 class="section-title">🛒 Mercado Quincenal</h2>
           <button class="btn btn-sm btn-primary" onclick="Shopping.openCreateModal()">+ Producto</button>
         </div>
 
@@ -324,11 +297,8 @@
 
       <!-- 6. VISTA CALCULADORA BCV -->
       <section id="view-bcv" class="tab-view">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">🇻🇪 Tasas de Cambio & Calculadora</h2>
-            <p class="section-desc">Tasa Oficial del Banco Central de Venezuela y Paralelo con candado permanente.</p>
-          </div>
+        <div class="section-header" style="margin-bottom: 0.85rem;">
+          <h2 class="section-title">🇻🇪 Tasas de Cambio & Calculadora</h2>
         </div>
 
         <div class="rates-display-grid">
@@ -366,11 +336,8 @@
 
       <!-- 7. VISTA AJUSTES & PERFILES -->
       <section id="view-settings" class="tab-view">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">⚙️ Ajustes del Hogar & Perfiles</h2>
-            <p class="section-desc">Personaliza tus nombres, fotos reales, teléfonos y cuenta sincronizada.</p>
-          </div>
+        <div class="section-header" style="margin-bottom: 0.85rem;">
+          <h2 class="section-title">⚙️ Ajustes del Hogar & Perfiles</h2>
         </div>
 
         <!-- Perfiles de la Pareja -->
