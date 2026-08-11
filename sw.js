@@ -1,14 +1,17 @@
 /**
- * HogarDúo Service Worker - Offline Caching (Ponytail Philosophy)
+ * HogarDúo Service Worker - Offline Caching & Push Notifications (Ponytail Philosophy)
  */
-const CACHE_NAME = 'hogarduo-cache-v1';
+const CACHE_NAME = 'hogarduo-cache-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/main.css',
   './css/components.css',
+  './icons/icon.svg',
   './js/audio-fx.js',
   './js/store.js',
+  './js/cloud-sync.js',
+  './js/notes.js',
   './js/bcv.js',
   './js/tasks.js',
   './js/pantry.js',
@@ -42,17 +45,38 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignorar llamadas a APIs externas como DolarApi para que siempre intenten consultar en vivo primero
-  if (event.request.url.includes('dolarapi.com')) {
-    event.respondWith(
-      fetch(event.request).catch(() => new Response(JSON.stringify({ error: 'offline' })))
-    );
+  // Dejar que Firebase, Google APIs y DolarApi vayan siempre a la red en vivo
+  if (
+    event.request.url.includes('firebaseio.com') ||
+    event.request.url.includes('googleapis.com') ||
+    event.request.url.includes('gstatic.com') ||
+    event.request.url.includes('dolarapi.com') ||
+    event.request.url.includes('qrserver.com')
+  ) {
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       return cachedResponse || fetch(event.request);
+    })
+  );
+});
+
+// Manejo de Clic en Notificaciones Push
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow('./index.html');
+      }
     })
   );
 });

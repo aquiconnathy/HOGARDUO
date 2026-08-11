@@ -481,9 +481,12 @@
             </label>
           </div>
           
-          <div style="margin-top: 0.75rem;">
-            <button class="btn btn-outline full-width" id="btn-enable-notifications" onclick="App.requestNotificationPermission()">
-              🔔 Activar Notificaciones Push en el Celular
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+            <button class="btn btn-outline" style="flex: 2;" id="btn-enable-notifications" onclick="App.requestNotificationPermission()">
+              🔔 Activar Notificaciones
+            </button>
+            <button class="btn btn-primary" style="flex: 1;" onclick="App.testNotification()" title="Enviar notificación de prueba">
+              🧪 Probar
             </button>
           </div>
 

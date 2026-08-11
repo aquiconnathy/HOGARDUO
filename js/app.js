@@ -159,37 +159,55 @@ const App = {
   // Sistema de Notificaciones Nativas del Celular
   async requestNotificationPermission() {
     if (!('Notification' in window)) {
-      this.showToast('Tu navegador no soporta notificaciones push', 'warning');
+      this.showToast('Tu navegador no soporta notificaciones push nativas', 'warning');
       return;
     }
 
     try {
       const permission = await Notification.requestPermission();
+      const btn = document.getElementById('btn-enable-notifications');
+      
       if (permission === 'granted') {
         this.showToast('¡Notificaciones push activadas! 🔔', 'success');
-        this.sendPushNotification('💑 HogarDúo Conectado', 'Recibirás avisos cuando tu pareja deje notas o tareas.');
-        const btn = document.getElementById('btn-enable-notifications');
         if (btn) btn.textContent = '✅ Notificaciones Activadas';
-      } else {
-        this.showToast('Permiso de notificaciones denegado', 'warning');
+        this.sendPushNotification('💑 HogarDúo Conectado', '¡Todo listo! Recibirás avisos cuando tu pareja deje notas.');
+      } else if (permission === 'denied') {
+        this.showToast('Permiso de notificaciones bloqueado en el navegador', 'danger');
+        if (btn) btn.textContent = '❌ Notificaciones Bloqueadas';
       }
     } catch (e) {
       console.warn('Notification error:', e);
     }
   },
 
+  testNotification() {
+    this.sendPushNotification('💌 Mensaje de Prueba', '¡Las notificaciones de tu pareja funcionan perfectamente! ❤️');
+    this.showToast('🔔 Enviando notificación de prueba...', 'info');
+    if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+    if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+  },
+
   sendPushNotification(title, body) {
+    if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+    if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
     try {
-      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {
           registration.showNotification(title, {
             body: body,
             icon: 'icons/icon.svg',
             badge: 'icons/icon.svg',
             vibrate: [200, 100, 200],
-            tag: 'hogarduo-notification'
+            tag: 'hogarduo-msg-' + Date.now(),
+            renotify: true
+          });
+        }).catch(() => {
+          new Notification(title, {
+            body: body,
+            icon: 'icons/icon.svg'
           });
         });
       } else {
@@ -199,7 +217,7 @@ const App = {
         });
       }
     } catch (e) {
-      console.warn('Send notification error:', e);
+      console.warn('Send notification warning:', e);
     }
   },
 
