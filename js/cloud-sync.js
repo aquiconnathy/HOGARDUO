@@ -173,7 +173,11 @@ const CloudSync = {
     // Notificar si hay un nuevo mensaje de la pareja
     if (payload.type === 'NEW_NOTE' && typeof App !== 'undefined') {
       const senderName = Store.state?.profiles?.[payload.senderUser]?.name || 'Tu pareja';
+      const lastNote = (Store.state?.notes && Store.state.notes[0]) ? Store.state.notes[0].text : 'Tienes un nuevo mensaje';
+      
       App.showToast(`💌 ${senderName} te dejó un mensaje nuevo`, 'success');
+      App.sendPushNotification(`💌 Mensaje de ${senderName}`, lastNote);
+      
       if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
     }
   },

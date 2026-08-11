@@ -156,28 +156,51 @@ const App = {
     if (toggleActions) toggleActions.checked = widgets.showQuickActions !== false;
   },
 
-  // Sistema de Toast Notifications
-  showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
+  // Sistema de Notificaciones Nativas del Celular
+  async requestNotificationPermission() {
+    if (!('Notification' in window)) {
+      this.showToast('Tu navegador no soporta notificaciones push', 'warning');
+      return;
+    }
 
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    
-    let icon = 'ℹ️';
-    if (type === 'success') icon = '✅';
-    if (type === 'warning') icon = '⚠️';
-    if (type === 'danger') icon = '🚨';
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        this.showToast('¡Notificaciones push activadas! 🔔', 'success');
+        this.sendPushNotification('💑 HogarDúo Conectado', 'Recibirás avisos cuando tu pareja deje notas o tareas.');
+        const btn = document.getElementById('btn-enable-notifications');
+        if (btn) btn.textContent = '✅ Notificaciones Activadas';
+      } else {
+        this.showToast('Permiso de notificaciones denegado', 'warning');
+      }
+    } catch (e) {
+      console.warn('Notification error:', e);
+    }
+  },
 
-    toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
-    container.appendChild(toast);
+  sendPushNotification(title, body) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(-10px)';
-      toast.style.transition = 'all 0.3s ease';
-      setTimeout(() => toast.remove(), 300);
-    }, 2800);
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification(title, {
+            body: body,
+            icon: 'icons/icon.svg',
+            badge: 'icons/icon.svg',
+            vibrate: [200, 100, 200],
+            tag: 'hogarduo-notification'
+          });
+        });
+      } else {
+        new Notification(title, {
+          body: body,
+          icon: 'icons/icon.svg'
+        });
+      }
+    } catch (e) {
+      console.warn('Send notification error:', e);
+    }
   },
 
   // Motor Nativo de Confeti en HTML5 Canvas (Ponytail: Cero dependencias externas)

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   HOGARDÚO - SPECIFIC COMPONENTS (COMPACT MOBILE FIRST)
+   HOGARDÚO - SPECIFIC COMPONENTS (BALANCED MOBILE PROPORTIONS)
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -8,18 +8,18 @@
 .header-right-badges {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
   flex-shrink: 0;
 }
 
 #btn-quick-theme {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   cursor: pointer;
@@ -29,13 +29,13 @@
 .cloud-status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.3rem;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 0.15rem 0.4rem;
+  padding: 0.25rem 0.55rem;
   border-radius: var(--radius-full);
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -48,31 +48,31 @@
 }
 
 .status-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--success);
   display: inline-block;
-  box-shadow: 0 0 4px var(--success);
+  box-shadow: 0 0 5px var(--success);
 }
 
 .sync-info-box {
   background: var(--bg-surface-elevated);
-  padding: 0.5rem 0.75rem;
+  padding: 0.65rem 0.85rem;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
 }
 
 .household-code-tag {
   font-family: var(--font-heading);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   letter-spacing: 0.5px;
   color: var(--primary);
   background: var(--primary-light);
-  padding: 0.15rem 0.5rem;
+  padding: 0.2rem 0.6rem;
   border-radius: var(--radius-sm);
 }
 
@@ -81,29 +81,29 @@
    -------------------------------------------------------------------------- */
 .welcome-card {
   text-align: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
   background: linear-gradient(145deg, rgba(99, 102, 241, 0.12), rgba(236, 72, 153, 0.12));
   border: 1px solid rgba(236, 72, 153, 0.2);
-  padding: 0.65rem 0.75rem;
+  padding: 0.85rem 1rem;
 }
 
 .welcome-avatars {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
 }
 
 .avatar-bubble {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  font-size: 1.5rem;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
 .p1-avatar {
@@ -117,77 +117,77 @@
 }
 
 .avatar-heart {
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   animation: pulseHeart 1.8s infinite ease-in-out;
 }
 
 @keyframes pulseHeart {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
+  50% { transform: scale(1.25); }
 }
 
 .welcome-title {
   font-family: var(--font-heading);
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  margin-bottom: 0.1rem;
+  margin-bottom: 0.15rem;
 }
 
 .welcome-quote {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   color: var(--text-secondary);
   font-style: italic;
 }
 
 /* WIDGET DE NOTAS Y RECORDATORIOS */
 .notes-hero-widget {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
   background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(99, 102, 241, 0.08));
   border: 1px solid rgba(236, 72, 153, 0.25);
   position: relative;
   overflow: hidden;
-  padding: 0.65rem 0.75rem;
+  padding: 0.85rem 1rem;
 }
 
 .widget-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.65rem;
 }
 
 .widget-title-wrap {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .widget-icon {
-  font-size: 1rem;
+  font-size: 1.15rem;
 }
 
 .widget-title {
   font-family: var(--font-heading);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
 .note-empty-state {
   text-align: center;
-  padding: 0.75rem;
+  padding: 0.85rem;
 }
 
 .note-empty-icon {
-  font-size: 1.6rem;
+  font-size: 1.8rem;
   display: block;
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.25rem;
 }
 
 .pinned-note-item {
   background: var(--bg-surface-elevated);
   border-radius: var(--radius-md);
-  padding: 0.65rem 0.75rem;
-  border-left: 3px solid var(--primary);
+  padding: 0.85rem 0.95rem;
+  border-left: 3.5px solid var(--primary);
   box-shadow: var(--shadow-sm);
 }
 
@@ -215,57 +215,57 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.4rem;
 }
 
 .note-author-info {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .note-author-avatar {
-  font-size: 1rem;
+  font-size: 1.15rem;
 }
 
 .note-author-name {
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 700;
   display: block;
 }
 
 .note-date {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
 }
 
 .note-type-badge {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: var(--radius-full);
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
 }
 
 .note-body-text {
-  font-size: 0.82rem;
-  line-height: 1.35;
+  font-size: 0.9rem;
+  line-height: 1.45;
   color: var(--text-primary);
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.6rem;
   white-space: pre-wrap;
 }
 
 .note-reminder-tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.3rem;
   background: rgba(245, 158, 11, 0.15);
   color: var(--warning);
-  padding: 0.15rem 0.4rem;
+  padding: 0.2rem 0.5rem;
   border-radius: var(--radius-sm);
-  font-size: 0.65rem;
-  margin-bottom: 0.45rem;
+  font-size: 0.72rem;
+  margin-bottom: 0.6rem;
 }
 
 .note-reactions-bar {
@@ -273,26 +273,26 @@
   align-items: center;
   justify-content: space-between;
   border-top: 1px solid var(--border-color);
-  padding-top: 0.35rem;
+  padding-top: 0.45rem;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .reactions-list {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.3rem;
 }
 
 .btn-reaction {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-full);
-  padding: 0.1rem 0.35rem;
-  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.2rem;
   transition: all 0.15s;
 }
 
@@ -303,47 +303,47 @@
 }
 
 .reaction-count {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: bold;
 }
 
 .note-actions-right {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .notes-history-header {
-  margin-top: 0.5rem;
-  margin-bottom: 0.25rem;
+  margin-top: 0.65rem;
+  margin-bottom: 0.3rem;
 }
 
 .notes-history-list {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .note-history-mini {
-  padding: 0.4rem 0.6rem;
-  font-size: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
 }
 
 .mini-author {
   display: flex;
   justify-content: space-between;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  margin-bottom: 0.1rem;
+  margin-bottom: 0.15rem;
 }
 
 .mini-text {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
 }
 
 .note-type-badge-mini {
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
 }
 
@@ -351,10 +351,10 @@ textarea {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 0.45rem 0.6rem;
+  padding: 0.55rem 0.75rem;
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   width: 100%;
   outline: none;
   resize: vertical;
@@ -364,15 +364,15 @@ textarea {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.45rem;
-  margin-bottom: 0.75rem;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
 }
 
 .stat-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.55rem 0.65rem;
+  padding: 0.75rem 0.85rem;
   cursor: pointer;
   transition: transform 0.15s ease;
 }
@@ -382,7 +382,7 @@ textarea {
 }
 
 .stat-icon {
-  font-size: 1.15rem;
+  font-size: 1.35rem;
 }
 
 .stat-info {
@@ -392,26 +392,26 @@ textarea {
 
 .stat-num {
   font-family: var(--font-heading);
-  font-size: 1rem;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.1;
 }
 
 .stat-label {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
 }
 
 .stat-arrow {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: bold;
 }
 
 .quick-actions-bar {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.45rem;
+  gap: 0.6rem;
 }
 
 /* --------------------------------------------------------------------------
@@ -419,10 +419,10 @@ textarea {
    -------------------------------------------------------------------------- */
 .filter-pill-bar {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.4rem;
   overflow-x: auto;
-  padding-bottom: 0.3rem;
-  margin-bottom: 0.6rem;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.75rem;
   scrollbar-width: none;
 }
 
@@ -430,9 +430,9 @@ textarea {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 0.25rem 0.55rem;
+  padding: 0.3rem 0.65rem;
   border-radius: var(--radius-full);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -448,18 +448,18 @@ textarea {
 .tasks-canvas-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.6rem;
 }
 
 .task-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 0.55rem 0.7rem;
+  padding: 0.75rem 0.9rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.45rem;
+  gap: 0.6rem;
   position: relative;
   overflow: hidden;
   transition: all 0.2s ease;
@@ -471,7 +471,7 @@ textarea {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 4px;
 }
 
 .task-card.assignee-p1::before { background: var(--p1-color); }
@@ -480,7 +480,7 @@ textarea {
 .task-card.assignee-unassigned::before { background: var(--accent); }
 
 .task-card.completed {
-  opacity: 0.5;
+  opacity: 0.55;
   background: rgba(17, 24, 39, 0.4);
 }
 
@@ -497,14 +497,14 @@ textarea {
 .task-badge-row {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  margin-bottom: 0.15rem;
+  gap: 0.35rem;
+  margin-bottom: 0.2rem;
 }
 
 .badge-assignee {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: var(--radius-full);
 }
 
@@ -514,23 +514,23 @@ textarea {
 .badge-unassigned { background: var(--warning-light); color: var(--warning); }
 
 .task-frequency-tag {
-  font-size: 0.58rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   text-transform: uppercase;
 }
 
 .task-main-title {
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.2;
+  line-height: 1.25;
   display: block;
 }
 
 .task-actions-col {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.25rem;
   flex-shrink: 0;
 }
 
@@ -538,13 +538,13 @@ textarea {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  font-size: 0.68rem;
-  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.2rem;
   transition: all 0.15s;
 }
 
@@ -555,17 +555,17 @@ textarea {
 }
 
 .btn-check-task {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 1.5px solid var(--border-color);
+  border: 2px solid var(--border-color);
   background: transparent;
   color: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   transition: all 0.15s ease;
 }
 
@@ -579,10 +579,10 @@ textarea {
    3. 3D DICE & SORTEO MODAL
    -------------------------------------------------------------------------- */
 .dice-scene {
-  width: 100px;
-  height: 100px;
-  margin: 0.75rem auto;
-  perspective: 500px;
+  width: 120px;
+  height: 120px;
+  margin: 1rem auto;
+  perspective: 550px;
 }
 
 .dice-cube {
@@ -590,7 +590,7 @@ textarea {
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
-  transform: translateZ(-50px) rotateX(15deg) rotateY(25deg);
+  transform: translateZ(-60px) rotateX(15deg) rotateY(25deg);
   transition: transform 1s cubic-bezier(0.2, 0.85, 0.4, 1.2);
 }
 
@@ -599,54 +599,54 @@ textarea {
 }
 
 @keyframes roll3D {
-  0% { transform: translateZ(-50px) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
-  100% { transform: translateZ(-50px) rotateX(720deg) rotateY(1080deg) rotateZ(360deg); }
+  0% { transform: translateZ(-60px) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+  100% { transform: translateZ(-60px) rotateX(720deg) rotateY(1080deg) rotateZ(360deg); }
 }
 
 .dice-face {
   position: absolute;
-  width: 100px;
-  height: 100px;
+  width: 120px;
+  height: 120px;
   background: linear-gradient(135deg, #1e1b4b, #312e81);
   border: 2px solid #818cf8;
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.2rem;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+  font-size: 2.6rem;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6);
 }
 
-.face-1 { transform: rotateY(0deg) translateZ(50px); }
-.face-2 { transform: rotateY(90deg) translateZ(50px); }
-.face-3 { transform: rotateY(180deg) translateZ(50px); }
-.face-4 { transform: rotateY(-90deg) translateZ(50px); }
-.face-5 { transform: rotateX(90deg) translateZ(50px); }
-.face-6 { transform: rotateX(-90deg) translateZ(50px); }
+.face-1 { transform: rotateY(0deg) translateZ(60px); }
+.face-2 { transform: rotateY(90deg) translateZ(60px); }
+.face-3 { transform: rotateY(180deg) translateZ(60px); }
+.face-4 { transform: rotateY(-90deg) translateZ(60px); }
+.face-5 { transform: rotateX(90deg) translateZ(60px); }
+.face-6 { transform: rotateX(-90deg) translateZ(60px); }
 
 .dice-result-card {
   background: var(--bg-surface-elevated);
   border-radius: var(--radius-md);
-  padding: 0.65rem;
-  margin: 0.65rem 0;
+  padding: 0.75rem;
+  margin: 0.75rem 0;
 }
 
 .result-badge {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
   text-transform: uppercase;
 }
 
 .result-winner {
   font-family: var(--font-heading);
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   font-weight: 800;
   color: var(--primary);
-  margin: 0.15rem 0;
+  margin: 0.2rem 0;
 }
 
 .result-task {
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
 }
 
@@ -655,10 +655,10 @@ textarea {
    -------------------------------------------------------------------------- */
 .category-tabs-bar {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.4rem;
   overflow-x: auto;
-  padding-bottom: 0.3rem;
-  margin-bottom: 0.6rem;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.75rem;
   scrollbar-width: none;
 }
 
@@ -666,9 +666,9 @@ textarea {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 0.25rem 0.5rem;
+  padding: 0.3rem 0.65rem;
   border-radius: var(--radius-sm);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -684,31 +684,31 @@ textarea {
 .pantry-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.45rem;
+  gap: 0.6rem;
 }
 
 .pantry-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 0.55rem;
+  padding: 0.75rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 0.35rem;
+  gap: 0.45rem;
   position: relative;
-  min-height: 85px;
+  min-height: 98px;
 }
 
 .pantry-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.2rem;
+  gap: 0.25rem;
 }
 
 .pantry-item-cat {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -718,14 +718,14 @@ textarea {
 .pantry-card-actions {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.2rem;
   flex-shrink: 0;
 }
 
 .pantry-item-name {
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  line-height: 1.15;
+  line-height: 1.2;
   color: var(--text-primary);
   margin: 0;
   word-break: break-word;
@@ -735,10 +735,10 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
-  padding: 0.25rem 0.35rem;
+  gap: 0.25rem;
+  padding: 0.3rem 0.45rem;
   border-radius: var(--radius-sm);
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 700;
   border: none;
   cursor: pointer;
@@ -758,30 +758,30 @@ textarea {
    5. MERCADO QUINCENAL & PRESUPUESTO DINÁMICO
    -------------------------------------------------------------------------- */
 .budget-panel {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
   border: 1px solid rgba(99, 102, 241, 0.3);
-  padding: 0.65rem 0.75rem;
+  padding: 0.85rem 1rem;
 }
 
 .budget-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.55rem;
 }
 
 .budget-title-wrap {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
 }
 
 .budget-badge-icon {
-  font-size: 1.25rem;
+  font-size: 1.4rem;
 }
 
 .budget-label {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   color: var(--text-secondary);
   font-weight: 700;
@@ -791,21 +791,21 @@ textarea {
 .budget-edit-row {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .currency-symbol {
   font-family: var(--font-heading);
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .budget-input {
   font-family: var(--font-heading);
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 800;
-  width: 75px;
+  width: 85px;
   background: transparent;
   border: none;
   border-bottom: 1.5px dashed var(--primary);
@@ -815,17 +815,17 @@ textarea {
 }
 
 .budget-in-bs {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
 .budget-progress-bar-wrap {
   width: 100%;
-  height: 7px;
+  height: 9px;
   background: var(--bg-surface-elevated);
   border-radius: var(--radius-full);
   overflow: hidden;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.65rem;
 }
 
 .budget-progress-bar {
@@ -846,32 +846,32 @@ textarea {
 .budget-metrics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.45rem;
+  gap: 0.55rem;
 }
 
 .metric-item {
   background: var(--bg-surface-elevated);
   border-radius: var(--radius-sm);
-  padding: 0.4rem 0.55rem;
+  padding: 0.5rem 0.7rem;
   display: flex;
   flex-direction: column;
 }
 
 .metric-lbl {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   color: var(--text-secondary);
   font-weight: 600;
 }
 
 .metric-val {
   font-family: var(--font-heading);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.15;
 }
 
 .metric-sub {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
 }
 
@@ -893,35 +893,35 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.55rem;
 }
 
 .list-count-badge {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   color: var(--text-secondary);
 }
 
 .shopping-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.45rem;
 }
 
 .shop-item-row {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 0.45rem 0.65rem;
+  padding: 0.6rem 0.8rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.4rem;
+  gap: 0.5rem;
   transition: background 0.2s;
 }
 
 .shop-item-row.checked {
   background: rgba(17, 24, 39, 0.45);
-  opacity: 0.5;
+  opacity: 0.55;
 }
 
 .shop-item-row.checked .shop-item-name {
@@ -932,14 +932,14 @@ textarea {
 .shop-item-left {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.55rem;
   flex: 1;
   min-width: 0;
 }
 
 .shop-checkbox {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   accent-color: var(--primary);
   cursor: pointer;
   flex-shrink: 0;
@@ -952,22 +952,23 @@ textarea {
 }
 
 .shop-item-name {
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.15;
+  line-height: 1.2;
   word-break: break-word;
 }
 
 .shop-item-qty {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
+  margin-top: 1px;
 }
 
 .shop-item-right {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
   flex-shrink: 0;
 }
 
@@ -980,14 +981,14 @@ textarea {
 
 .shop-price-usd {
   font-family: var(--font-heading);
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.1;
 }
 
 .shop-price-bs {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   line-height: 1.1;
 }
@@ -995,7 +996,7 @@ textarea {
 .shop-item-actions {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 /* --------------------------------------------------------------------------
@@ -1003,83 +1004,83 @@ textarea {
    -------------------------------------------------------------------------- */
 .bcv-hero-card {
   text-align: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(99, 102, 241, 0.08));
   border: 1px solid rgba(16, 185, 129, 0.3);
-  padding: 0.75rem;
+  padding: 0.9rem;
 }
 
 .bcv-hero-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.3rem;
   background: rgba(16, 185, 129, 0.15);
   color: var(--success);
-  padding: 0.15rem 0.5rem;
+  padding: 0.2rem 0.6rem;
   border-radius: var(--radius-full);
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
 }
 
 .bcv-price-display {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 
 .bcv-price-num {
   font-family: var(--font-heading);
-  font-size: 1.8rem;
+  font-size: 2.1rem;
   font-weight: 800;
   color: var(--success);
 }
 
 .bcv-price-currency {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
 .bcv-timestamp {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.65rem;
 }
 
 .bcv-manual-override {
   border-top: 1px solid var(--border-color);
-  padding-top: 0.45rem;
+  padding-top: 0.55rem;
   text-align: left;
 }
 
 .bcv-manual-override label {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
 }
 
 .input-with-action {
   display: flex;
-  gap: 0.35rem;
-  margin-top: 0.15rem;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
 }
 
 .converter-box {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 
 .box-title {
   font-family: var(--font-heading);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.55rem;
 }
 
 .converter-grid {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .conv-field {
@@ -1087,9 +1088,9 @@ textarea {
 }
 
 .conv-field label {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   color: var(--text-secondary);
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.2rem;
   display: block;
 }
 
@@ -1099,65 +1100,65 @@ textarea {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  padding: 0 0.35rem;
+  padding: 0 0.45rem;
 }
 
 .conv-input-wrap span {
   color: var(--text-muted);
   font-weight: bold;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .conv-input-wrap input {
   background: transparent;
   border: none;
-  padding: 0.4rem 0.25rem;
-  font-size: 0.8rem;
+  padding: 0.48rem 0.35rem;
+  font-size: 0.85rem;
 }
 
 .conv-swap-icon {
-  font-size: 1rem;
+  font-size: 1.15rem;
   color: var(--primary);
-  padding-top: 0.75rem;
+  padding-top: 0.85rem;
 }
 
 /* Calculadora de Compras */
 .calc-widget {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 
 .calc-display-wrap {
   background: var(--bg-main);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 0.5rem 0.65rem;
+  padding: 0.6rem 0.8rem;
   text-align: right;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.55rem;
 }
 
 .calc-history {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
-  min-height: 14px;
+  min-height: 16px;
 }
 
 .calc-screen {
   font-family: var(--font-heading);
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
   overflow-x: auto;
 }
 
 .calc-equivalent {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--success);
 }
 
 .calc-keypad {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .btn-calc {
@@ -1165,9 +1166,9 @@ textarea {
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   font-family: var(--font-heading);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 600;
-  padding: 0.55rem 0;
+  padding: 0.65rem 0;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -1194,33 +1195,33 @@ textarea {
    7. CONFIGURACIÓN & PERFILES
    -------------------------------------------------------------------------- */
 .settings-section {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 
 .profiles-edit-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.45rem;
-  margin-bottom: 0.65rem;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
 }
 
 .profile-card-edit {
   background: var(--bg-surface-elevated);
-  padding: 0.55rem;
+  padding: 0.65rem;
   border-radius: var(--radius-md);
 }
 
 .profile-card-edit h4 {
-  font-size: 0.75rem;
-  margin-bottom: 0.3rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.35rem;
   color: var(--text-secondary);
 }
 
 .backup-actions-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.45rem;
-  margin-top: 0.45rem;
+  gap: 0.55rem;
+  margin-top: 0.55rem;
 }
 
 .file-input-label {
@@ -1238,8 +1239,8 @@ textarea {
 .switch {
   position: relative;
   display: inline-block;
-  width: 38px;
-  height: 20px;
+  width: 42px;
+  height: 22px;
 }
 
 .switch input { opacity: 0; width: 0; height: 0; }
@@ -1251,14 +1252,14 @@ textarea {
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   transition: .25s;
-  border-radius: 20px;
+  border-radius: 22px;
 }
 
 .slider:before {
   position: absolute;
   content: "";
-  height: 14px;
-  width: 14px;
+  height: 16px;
+  width: 16px;
   left: 2px;
   bottom: 2px;
   background-color: white;
@@ -1272,5 +1273,5 @@ input:checked + .slider {
 }
 
 input:checked + .slider:before {
-  transform: translateX(18px);
+  transform: translateX(20px);
 }

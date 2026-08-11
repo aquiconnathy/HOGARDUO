@@ -8,6 +8,16 @@ const Pantry = {
     this.render();
   },
 
+  escapeHTML(str) {
+    return str ? String(str).replace(/[&<>'"]/g, tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag)) : '';
+  },
+
   setCategory(cat, btnEl) {
     this.currentCategory = cat;
     document.querySelectorAll('#pantry-categories .cat-tab').forEach(b => b.classList.remove('active'));

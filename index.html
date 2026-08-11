@@ -465,9 +465,9 @@
           </div>
         </div>
 
-        <!-- Opciones de Tema y PWA -->
+        <!-- Opciones de Tema, Notificaciones y PWA -->
         <div class="settings-section glass-panel">
-          <h3 class="box-title">🎨 Apariencia & Aplicación</h3>
+          <h3 class="box-title">🎨 Apariencia & Notificaciones</h3>
           <div class="theme-toggle-row">
             <span>Modo Oscuro Elegante</span>
             <label class="switch">
@@ -475,7 +475,14 @@
               <span class="slider round"></span>
             </label>
           </div>
-          <div class="pwa-install-box" id="pwa-install-box" style="margin-top: 1rem;">
+          
+          <div style="margin-top: 0.75rem;">
+            <button class="btn btn-outline full-width" id="btn-enable-notifications" onclick="App.requestNotificationPermission()">
+              🔔 Activar Notificaciones Push en el Celular
+            </button>
+          </div>
+
+          <div class="pwa-install-box" id="pwa-install-box" style="margin-top: 0.65rem;">
             <button class="btn btn-accent full-width" id="btn-install-pwa" onclick="App.installPWA()">
               📱 Instalar App en Pantalla de Inicio
             </button>

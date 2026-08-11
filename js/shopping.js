@@ -9,6 +9,16 @@ const Shopping = {
     this.render();
   },
 
+  escapeHTML(str) {
+    return str ? String(str).replace(/[&<>'"]/g, tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag)) : '';
+  },
+
   render() {
     const container = document.getElementById('shopping-items-container');
     if (!container) return;
