@@ -22,8 +22,8 @@ const Store = {
       }
     ],
     bcv: {
-      rate: 68.50,
-      lastUpdated: null,
+      rate: 761.22,
+      lastUpdated: new Date().toISOString(),
       source: 'Oficial BCV'
     },
     budget: {
