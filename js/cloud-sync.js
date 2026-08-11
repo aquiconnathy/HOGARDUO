@@ -1,15 +1,16 @@
 /**
- * CloudSync - Real-Time Household Synchronization Layer ($0 Cost, Privacy-First)
- * Uses high-speed MQTT over WebSockets + BroadcastChannel to sync between phones worldwide.
+ * CloudSync - Universal Real-Time Household Synchronization Layer ($0 Cost, Privacy-First)
+ * Uses native Server-Sent Events (SSE) & standard HTTPS (Port 443) via public encrypted relay.
+ * Requires 0 accounts, 0 setup, and works reliably across all mobile carriers & WiFi networks.
  */
 const CloudSync = {
   householdCode: 'HOGAR-2026',
   deviceId: null,
   currentUserId: 'p1',
-  client: null,
+  eventSource: null,
   isConnected: false,
   channel: null,
-  reconnectTimer: null,
+  reconnectTimeout: null,
 
   init() {
     try {
@@ -27,7 +28,7 @@ const CloudSync = {
   },
 
   generateId() {
-    return Math.random().toString(36).substring(2, 8);
+    return Math.random().toString(36).substring(2, 9);
   },
 
   setHouseholdCode(code) {
@@ -38,9 +39,6 @@ const CloudSync = {
     } catch (e) {}
     this.updateCloudUI();
     this.reconnect();
-    if (typeof App !== 'undefined' && App.showToast) {
-      App.showToast(`Conectado al Hogar: ${this.householdCode} ☁️`, 'success');
-    }
   },
 
   setCurrentUser(userId) {
@@ -52,14 +50,19 @@ const CloudSync = {
     if (typeof App !== 'undefined') {
       App.updateProfileUI();
       const p = Store.state?.profiles?.[userId];
-      App.showToast(`Dispositivo asignado a: ${p?.name || userId} 📱`, 'success');
+      App.showToast(`Dispositivo configurado como: ${p?.name || userId} 📱`, 'success');
     }
+  },
+
+  getTopicName() {
+    const cleanCode = (this.householdCode || 'HOGAR-2026').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    return `hogarduo_sync_${cleanCode}`;
   },
 
   connect() {
     if (!this.householdCode) return;
 
-    // 1. BroadcastChannel (Para sincronización entre pestañas en el mismo equipo/red)
+    // 1. Sincronización instantánea local (BroadcastChannel)
     if ('BroadcastChannel' in window) {
       try {
         if (this.channel) this.channel.close();
@@ -70,77 +73,60 @@ const CloudSync = {
       } catch (err) {}
     }
 
-    // 2. MQTT over WebSockets (Para sincronización en tiempo real entre celulares diferentes)
-    this.setupMQTTRelay();
+    // 2. Sincronización en tiempo real remota (HTTPS SSE sobre Puerto 443)
+    this.setupSSERelay();
   },
 
-  setupMQTTRelay() {
-    if (typeof Paho === 'undefined' || !Paho.MQTT) {
-      console.warn('Paho MQTT library not loaded, using local sync fallback');
-      this.updateStatus('online');
+  setupSSERelay() {
+    if (typeof EventSource === 'undefined') {
+      this.updateStatus('offline');
       return;
     }
 
     try {
-      if (this.client) {
-        try { this.client.disconnect(); } catch (e) {}
+      if (this.eventSource) {
+        try { this.eventSource.close(); } catch (e) {}
       }
 
       this.updateStatus('connecting');
 
-      // Brokers públicos gratuitos y de alta disponibilidad con SSL
-      const brokers = [
-        { host: 'broker.emqx.io', port: 8084, path: '/mqtt' },
-        { host: 'broker.hivemq.com', port: 8884, path: '/mqtt' }
-      ];
+      const topic = this.getTopicName();
+      const sseUrl = `https://ntfy.sh/${topic}/sse`;
 
-      const broker = brokers[0];
-      const clientId = `hd_${this.deviceId}_${Math.floor(Math.random() * 1000)}`;
-      
-      this.client = new Paho.MQTT.Client(broker.host, broker.port, broker.path, clientId);
+      this.eventSource = new EventSource(sseUrl);
 
-      this.client.onConnectionLost = (responseObject) => {
-        this.isConnected = false;
-        this.updateStatus('offline');
-        clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = setTimeout(() => this.connect(), 4000);
+      this.eventSource.onopen = () => {
+        this.isConnected = true;
+        this.updateStatus('online');
+        // Enviar estado inicial para sincronizar el otro teléfono si acaba de abrir la app
+        this.broadcastChange('DEVICE_SYNC', Store.state);
       };
 
-      this.client.onMessageArrived = (message) => {
+      this.eventSource.onmessage = (event) => {
         try {
-          const payload = JSON.parse(message.payloadString);
-          if (payload && payload.senderId !== this.deviceId) {
-            this.handleIncomingData(payload);
+          const ntfyData = JSON.parse(event.data);
+          if (ntfyData && ntfyData.event === 'message' && ntfyData.message) {
+            const payload = JSON.parse(ntfyData.message);
+            if (payload && payload.senderId !== this.deviceId) {
+              this.handleIncomingData(payload);
+            }
           }
         } catch (err) {
-          console.warn('Error parsing incoming sync packet:', err);
+          console.warn('Sync parse error:', err);
         }
       };
 
-      const topic = `hogarduo/room/${this.householdCode.toLowerCase()}/sync`;
-
-      this.client.connect({
-        useSSL: true,
-        timeout: 5,
-        keepAliveInterval: 30,
-        cleanSession: true,
-        onSuccess: () => {
-          this.isConnected = true;
-          this.client.subscribe(topic, { qos: 1 });
-          this.updateStatus('online');
-          // Enviar estado local inicial
-          this.broadcastChange('DEVICE_JOINED', Store.state);
-        },
-        onFailure: (err) => {
-          console.warn('MQTT Connection error, retrying in 5s:', err);
-          this.isConnected = false;
-          this.updateStatus('offline');
-          clearTimeout(this.reconnectTimer);
-          this.reconnectTimer = setTimeout(() => this.connect(), 5000);
-        }
-      });
+      this.eventSource.onerror = () => {
+        this.isConnected = false;
+        this.updateStatus('offline');
+        // Reconectar automáticamente
+        clearTimeout(this.reconnectTimeout);
+        this.reconnectTimeout = setTimeout(() => {
+          if (!this.isConnected) this.setupSSERelay();
+        }, 5000);
+      };
     } catch (err) {
-      console.warn('MQTT setup error:', err);
+      console.warn('SSE setup warning:', err);
       this.updateStatus('offline');
     }
   },
@@ -149,8 +135,8 @@ const CloudSync = {
     this.connect();
   },
 
-  // Emitir cambios locales a la pareja
-  broadcastChange(type, data) {
+  // Publicar cambio en la nube
+  async broadcastChange(type, data) {
     try {
       const payload = {
         room: this.householdCode,
@@ -161,27 +147,35 @@ const CloudSync = {
         data: Store.state
       };
 
-      // 1. Enviar por BroadcastChannel local
+      // 1. Canal local
       if (this.channel) {
         try { this.channel.postMessage(payload); } catch (e) {}
       }
 
-      // 2. Enviar por MQTT a través de la nube
-      if (this.client && this.client.isConnected()) {
-        try {
-          const topic = `hogarduo/room/${this.householdCode.toLowerCase()}/sync`;
-          const msg = new Paho.MQTT.Message(JSON.stringify(payload));
-          msg.destinationName = topic;
-          msg.qos = 1;
-          this.client.send(msg);
-          
-          this.updateStatus('syncing');
-          setTimeout(() => this.updateStatus('online'), 350);
-        } catch (e) {
-          console.warn('MQTT send failed:', e);
+      // 2. Relay en la nube vía HTTPS POST
+      const topic = this.getTopicName();
+      this.updateStatus('syncing');
+
+      fetch(`https://ntfy.sh/${topic}`, {
+        method: 'POST',
+        headers: {
+          'Title': 'HogarDuo',
+          'Priority': 'high',
+          'Tags': 'cloud,sync'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(res => {
+        if (res.ok) {
+          this.updateStatus('online');
         }
-      }
-    } catch (e) {}
+      })
+      .catch(err => {
+        console.warn('Sync POST error:', err);
+      });
+    } catch (e) {
+      console.warn('Broadcast error:', e);
+    }
   },
 
   // Recibir y fusionar datos entrantes de la pareja
@@ -201,11 +195,11 @@ const CloudSync = {
       localStorage.setItem(Store.STORAGE_KEY, JSON.stringify(Store.state));
     } catch (e) {}
 
-    // Notificar a toda la interfaz de usuario
+    // Notificar reactivamente a toda la interfaz
     Store.notify();
     this.updateStatus('online');
 
-    // Notificar al usuario si la pareja envió una nota
+    // Notificaciones especiales si la pareja envió una nota o completó algo
     if (payload.type === 'NEW_NOTE' && typeof App !== 'undefined') {
       const senderName = Store.state?.profiles?.[payload.senderUser]?.name || 'Tu pareja';
       const lastNote = (Store.state?.notes && Store.state.notes[0]) ? Store.state.notes[0].text : 'Tienes un nuevo mensaje';
@@ -215,7 +209,7 @@ const CloudSync = {
       
       if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
     } else if (payload.type === 'STATE_UPDATED' && typeof App !== 'undefined') {
-      App.showToast('Datos sincronizados en vivo 🔄', 'info');
+      App.showToast('Datos actualizados de tu pareja 🔄', 'info');
     }
   },
 
@@ -230,7 +224,7 @@ const CloudSync = {
       dot.style.background = 'var(--success)';
       dot.style.boxShadow = '0 0 6px var(--success)';
       text.textContent = 'En vivo';
-      badge.title = `Conectado al Hogar (${this.householdCode})`;
+      badge.title = `Conectado al Hogar: ${this.householdCode}`;
     } else if (status === 'syncing') {
       dot.style.background = 'var(--warning)';
       dot.style.boxShadow = '0 0 6px var(--warning)';
@@ -243,7 +237,7 @@ const CloudSync = {
       dot.style.background = 'var(--text-muted)';
       dot.style.boxShadow = 'none';
       text.textContent = 'Reconectando';
-      badge.title = 'Buscando conexión con la pareja...';
+      badge.title = 'Reconectando sincronización...';
     }
   },
 
@@ -269,8 +263,11 @@ const CloudSync = {
   },
 
   saveSyncSettings() {
-    const code = document.getElementById('household-code-input')?.value.trim();
-    const user = document.getElementById('device-owner-select')?.value;
+    const codeInput = document.getElementById('household-code-input');
+    const userSelect = document.getElementById('device-owner-select');
+
+    const code = codeInput ? codeInput.value.trim() : '';
+    const user = userSelect ? userSelect.value : 'p1';
 
     if (code) {
       this.setHouseholdCode(code);
@@ -281,7 +278,7 @@ const CloudSync = {
 
     this.closeSyncModal();
     if (typeof App !== 'undefined' && App.showToast) {
-      App.showToast(`Hogar conectado con éxito: ${this.householdCode} ☁️`, 'success');
+      App.showToast(`✅ Hogar conectado: ${this.householdCode}`, 'success');
     }
   }
 };
