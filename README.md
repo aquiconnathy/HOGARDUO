@@ -34,7 +34,7 @@ App web híbrida, rápida, hermosa y **100% offline-first**, construida bajo la 
    * Calculadora rápida incorporada para sumas, descuentos o cálculos por unidad/kilo.
 
 6. **🔒 100% Privada y Sin Servidores de Pago**:
-   * Tus datos se guardan de forma local en tu propio dispositivo (`localStorage` / `IndexedDB`).
+   * Tus datos se guardan de forma segura en la nube.
    * Exportación e importación de copias de seguridad en formato JSON con 1 clic.
    * Instalable como PWA en teléfonos Android, iPhone y PC.
 
@@ -42,6 +42,6 @@ App web híbrida, rápida, hermosa y **100% offline-first**, construida bajo la 
 
 ## 🚀 Cómo usarla
 
-1. Abre directamente el archivo [index.html](file:///c:/Users/Usuario/Documents/PERSONAL%20PROYECTS/hogarduo/index.html) en tu navegador preferido (Chrome, Edge, Safari, Firefox).
-2. O bien sírvela con cualquier servidor local simple (ej. `npx serve .` o Live Server).
+1. Abre directamente hogarduo.vercel.app en tu navegador preferido (Chrome, Edge, Safari, Firefox).
+2. Crea tu nuevo Hogar con un codigo unico asociado para ambos usuarios.
 3. En tu teléfono, presiona el menú de opciones del navegador y selecciona **"Añadir a la pantalla de inicio"** o **"Instalar aplicación"** para usarla a pantalla completa como una app nativa.
