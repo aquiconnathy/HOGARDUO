@@ -170,7 +170,6 @@ const App = {
       if (permission === 'granted') {
         this.showToast('¡Notificaciones push activadas! 🔔', 'success');
         if (btn) btn.textContent = '✅ Notificaciones Activadas';
-        this.sendPushNotification('💑 HogarDúo Conectado', '¡Todo listo! Recibirás avisos cuando tu pareja deje notas.');
       } else if (permission === 'denied') {
         this.showToast('Permiso de notificaciones bloqueado en el navegador', 'danger');
         if (btn) btn.textContent = '❌ Notificaciones Bloqueadas';

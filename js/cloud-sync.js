@@ -207,12 +207,7 @@ const CloudSync = {
     // Ignorar si el mensaje fue enviado por esta misma sesión
     if (payload.sessionId === this.sessionId) return;
 
-    const isNewEvent = payload.timestamp && payload.timestamp > this.lastHandledTimestamp;
-    if (payload.timestamp) {
-      this.lastHandledTimestamp = payload.timestamp;
-    }
-
-    // Fusionar estado entrante en el Store local
+    // 1. Fusionar estado entrante en el Store local
     if (payload.state) {
       Store.state = {
         ...Store.state,
@@ -235,19 +230,29 @@ const CloudSync = {
     Store.notify();
     this.updateStatus('online');
 
-    // Notificaciones especiales si la pareja envió una nota
-    if (payload.type === 'NEW_NOTE' && isNewEvent) {
-      const senderName = Store.state?.profiles?.[payload.senderUser]?.name || (payload.senderUser === 'p1' ? 'Ella' : 'Él');
-      const noteText = payload.extra?.note?.text || (Store.state?.notes && Store.state.notes[0]?.text) || 'Nuevo mensaje de amor ❤️';
-      
-      if (typeof App !== 'undefined') {
-        App.showToast(`💌 ${senderName} te dejó una nueva nota`, 'success');
-        App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
+    // 2. Notificar si hay una nota nueva enviada por la pareja
+    const incomingNote = payload.extra?.note || (Store.state?.notes && Store.state.notes[0]);
+    if (incomingNote && incomingNote.id && incomingNote.id !== this.lastNotifiedNoteId) {
+      // Solo notificar si la escribió la pareja (no este dispositivo)
+      if (incomingNote.author !== this.currentUserId) {
+        this.lastNotifiedNoteId = incomingNote.id;
+        try { localStorage.setItem('hogarduo_last_notified_note', incomingNote.id); } catch(e) {}
+
+        const senderName = Store.state?.profiles?.[incomingNote.author]?.name || (incomingNote.author === 'p1' ? 'Ella' : 'Él');
+        const noteText = incomingNote.text || 'Nuevo mensaje de amor ❤️';
+
+        if (typeof App !== 'undefined') {
+          App.showToast(`💌 ${senderName}: "${noteText}"`, 'success');
+          App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
+        }
+        
+        if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+        return;
       }
-      
-      if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-    } else if (isNewEvent && typeof App !== 'undefined') {
+    }
+
+    if (typeof App !== 'undefined') {
       App.showToast('Datos actualizados de tu pareja 🔄', 'info');
     }
   },
