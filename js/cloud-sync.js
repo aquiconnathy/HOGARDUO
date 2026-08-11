@@ -1,21 +1,22 @@
 /**
  * CloudSync - Real-Time Household Synchronization Layer ($0 Cost, Privacy-First)
- * Synchronizes tasks, shopping, pantry, and love notes across both phones in real-time.
+ * Uses high-speed MQTT over WebSockets + BroadcastChannel to sync between phones worldwide.
  */
 const CloudSync = {
   householdCode: 'HOGAR-2026',
   deviceId: null,
   currentUserId: 'p1',
-  socket: null,
+  client: null,
   isConnected: false,
   channel: null,
+  reconnectTimer: null,
 
   init() {
     try {
-      this.deviceId = 'device_' + (localStorage.getItem('hogarduo_device_id') || this.generateId());
+      this.deviceId = 'dev_' + (localStorage.getItem('hogarduo_device_id') || this.generateId());
       localStorage.setItem('hogarduo_device_id', this.deviceId);
 
-      this.householdCode = localStorage.getItem('hogarduo_household_code') || 'HOGAR-2026';
+      this.householdCode = (localStorage.getItem('hogarduo_household_code') || 'HOGAR-2026').trim().toUpperCase();
       this.currentUserId = localStorage.getItem('hogarduo_user_id') || 'p1';
 
       this.updateCloudUI();
@@ -26,7 +27,7 @@ const CloudSync = {
   },
 
   generateId() {
-    return Math.random().toString(36).substring(2, 9);
+    return Math.random().toString(36).substring(2, 8);
   },
 
   setHouseholdCode(code) {
@@ -51,69 +52,96 @@ const CloudSync = {
     if (typeof App !== 'undefined') {
       App.updateProfileUI();
       const p = Store.state?.profiles?.[userId];
-      App.showToast(`Dispositivo configurado para: ${p?.name || userId} 📱`, 'success');
+      App.showToast(`Dispositivo asignado a: ${p?.name || userId} 📱`, 'success');
     }
   },
 
   connect() {
     if (!this.householdCode) return;
 
-    try {
-      this.updateStatus('online');
-
-      // 1. BroadcastChannel para sincronización instantánea entre pestañas abiertas en el mismo navegador
-      if ('BroadcastChannel' in window) {
-        try {
-          if (this.channel) this.channel.close();
-          this.channel = new BroadcastChannel(`hogarduo_${this.householdCode}`);
-          this.channel.onmessage = (event) => {
-            this.handleIncomingData(event.data);
-          };
-        } catch (err) {}
-      }
-
-      // 2. Conexión WebSocket para sincronización en tiempo real entre celulares
-      this.setupWebsocketRelay();
-    } catch (e) {
-      console.warn('CloudSync connection warning:', e);
-      this.updateStatus('offline');
+    // 1. BroadcastChannel (Para sincronización entre pestañas en el mismo equipo/red)
+    if ('BroadcastChannel' in window) {
+      try {
+        if (this.channel) this.channel.close();
+        this.channel = new BroadcastChannel(`hogarduo_${this.householdCode}`);
+        this.channel.onmessage = (event) => {
+          this.handleIncomingData(event.data);
+        };
+      } catch (err) {}
     }
+
+    // 2. MQTT over WebSockets (Para sincronización en tiempo real entre celulares diferentes)
+    this.setupMQTTRelay();
   },
 
-  setupWebsocketRelay() {
-    if (typeof WebSocket === 'undefined') return;
+  setupMQTTRelay() {
+    if (typeof Paho === 'undefined' || !Paho.MQTT) {
+      console.warn('Paho MQTT library not loaded, using local sync fallback');
+      this.updateStatus('online');
+      return;
+    }
 
     try {
-      if (this.socket) {
-        try { this.socket.close(); } catch (e) {}
+      if (this.client) {
+        try { this.client.disconnect(); } catch (e) {}
       }
 
-      // Usar broker websocket seguro público
-      this.socket = new WebSocket('wss://echo.websocket.events');
+      this.updateStatus('connecting');
 
-      this.socket.onopen = () => {
-        this.isConnected = true;
-        this.updateStatus('online');
+      // Brokers públicos gratuitos y de alta disponibilidad con SSL
+      const brokers = [
+        { host: 'broker.emqx.io', port: 8084, path: '/mqtt' },
+        { host: 'broker.hivemq.com', port: 8884, path: '/mqtt' }
+      ];
+
+      const broker = brokers[0];
+      const clientId = `hd_${this.deviceId}_${Math.floor(Math.random() * 1000)}`;
+      
+      this.client = new Paho.MQTT.Client(broker.host, broker.port, broker.path, clientId);
+
+      this.client.onConnectionLost = (responseObject) => {
+        this.isConnected = false;
+        this.updateStatus('offline');
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = setTimeout(() => this.connect(), 4000);
       };
 
-      this.socket.onmessage = (event) => {
+      this.client.onMessageArrived = (message) => {
         try {
-          const payload = JSON.parse(event.data);
-          if (payload && payload.room === this.householdCode && payload.senderId !== this.deviceId) {
-            this.handleIncomingData(payload.data);
+          const payload = JSON.parse(message.payloadString);
+          if (payload && payload.senderId !== this.deviceId) {
+            this.handleIncomingData(payload);
           }
-        } catch (err) {}
+        } catch (err) {
+          console.warn('Error parsing incoming sync packet:', err);
+        }
       };
 
-      this.socket.onclose = () => {
-        this.isConnected = false;
-      };
+      const topic = `hogarduo/room/${this.householdCode.toLowerCase()}/sync`;
 
-      this.socket.onerror = () => {
-        this.isConnected = false;
-      };
+      this.client.connect({
+        useSSL: true,
+        timeout: 5,
+        keepAliveInterval: 30,
+        cleanSession: true,
+        onSuccess: () => {
+          this.isConnected = true;
+          this.client.subscribe(topic, { qos: 1 });
+          this.updateStatus('online');
+          // Enviar estado local inicial
+          this.broadcastChange('DEVICE_JOINED', Store.state);
+        },
+        onFailure: (err) => {
+          console.warn('MQTT Connection error, retrying in 5s:', err);
+          this.isConnected = false;
+          this.updateStatus('offline');
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+        }
+      });
     } catch (err) {
-      this.isConnected = false;
+      console.warn('MQTT setup error:', err);
+      this.updateStatus('offline');
     }
   },
 
@@ -121,7 +149,7 @@ const CloudSync = {
     this.connect();
   },
 
-  // Emitir cambios locales a la nube
+  // Emitir cambios locales a la pareja
   broadcastChange(type, data) {
     try {
       const payload = {
@@ -133,18 +161,25 @@ const CloudSync = {
         data: Store.state
       };
 
-      // BroadcastChannel local
+      // 1. Enviar por BroadcastChannel local
       if (this.channel) {
         try { this.channel.postMessage(payload); } catch (e) {}
       }
 
-      // WebSocket remoto
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      // 2. Enviar por MQTT a través de la nube
+      if (this.client && this.client.isConnected()) {
         try {
-          this.socket.send(JSON.stringify(payload));
+          const topic = `hogarduo/room/${this.householdCode.toLowerCase()}/sync`;
+          const msg = new Paho.MQTT.Message(JSON.stringify(payload));
+          msg.destinationName = topic;
+          msg.qos = 1;
+          this.client.send(msg);
+          
           this.updateStatus('syncing');
-          setTimeout(() => this.updateStatus('online'), 400);
-        } catch (e) {}
+          setTimeout(() => this.updateStatus('online'), 350);
+        } catch (e) {
+          console.warn('MQTT send failed:', e);
+        }
       }
     } catch (e) {}
   },
@@ -155,8 +190,8 @@ const CloudSync = {
     if (payload.senderId === this.deviceId) return;
 
     const incoming = payload.data;
-    
-    // Fusionar estado entrante
+
+    // Fusionar estado entrante en Store
     Store.state = {
       ...Store.state,
       ...incoming
@@ -166,19 +201,21 @@ const CloudSync = {
       localStorage.setItem(Store.STORAGE_KEY, JSON.stringify(Store.state));
     } catch (e) {}
 
-    // Notificar a la UI
+    // Notificar a toda la interfaz de usuario
     Store.notify();
     this.updateStatus('online');
 
-    // Notificar si hay un nuevo mensaje de la pareja
+    // Notificar al usuario si la pareja envió una nota
     if (payload.type === 'NEW_NOTE' && typeof App !== 'undefined') {
       const senderName = Store.state?.profiles?.[payload.senderUser]?.name || 'Tu pareja';
       const lastNote = (Store.state?.notes && Store.state.notes[0]) ? Store.state.notes[0].text : 'Tienes un nuevo mensaje';
       
-      App.showToast(`💌 ${senderName} te dejó un mensaje nuevo`, 'success');
+      App.showToast(`💌 ${senderName} te dejó una nueva nota`, 'success');
       App.sendPushNotification(`💌 Mensaje de ${senderName}`, lastNote);
       
       if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+    } else if (payload.type === 'STATE_UPDATED' && typeof App !== 'undefined') {
+      App.showToast('Datos sincronizados en vivo 🔄', 'info');
     }
   },
 
@@ -191,18 +228,22 @@ const CloudSync = {
 
     if (status === 'online') {
       dot.style.background = 'var(--success)';
+      dot.style.boxShadow = '0 0 6px var(--success)';
       text.textContent = 'En vivo';
       badge.title = `Conectado al Hogar (${this.householdCode})`;
     } else if (status === 'syncing') {
       dot.style.background = 'var(--warning)';
+      dot.style.boxShadow = '0 0 6px var(--warning)';
       text.textContent = 'Sincronizando...';
     } else if (status === 'connecting') {
       dot.style.background = 'var(--accent)';
+      dot.style.boxShadow = '0 0 6px var(--accent)';
       text.textContent = 'Conectando...';
     } else {
       dot.style.background = 'var(--text-muted)';
-      text.textContent = 'Modo Local';
-      badge.title = 'Sin conexión de sincronización';
+      dot.style.boxShadow = 'none';
+      text.textContent = 'Reconectando';
+      badge.title = 'Buscando conexión con la pareja...';
     }
   },
 
@@ -212,7 +253,7 @@ const CloudSync = {
     const userSelect = document.getElementById('device-owner-select');
 
     if (codeEl) codeEl.textContent = this.householdCode || 'HOGAR-2026';
-    if (codeIn && !codeIn.value) codeIn.value = this.householdCode || 'HOGAR-2026';
+    if (codeIn) codeIn.value = this.householdCode || 'HOGAR-2026';
     if (userSelect) userSelect.value = this.currentUserId || 'p1';
   },
 
@@ -231,9 +272,16 @@ const CloudSync = {
     const code = document.getElementById('household-code-input')?.value.trim();
     const user = document.getElementById('device-owner-select')?.value;
 
-    if (code) this.setHouseholdCode(code);
-    if (user) this.setCurrentUser(user);
+    if (code) {
+      this.setHouseholdCode(code);
+    }
+    if (user) {
+      this.setCurrentUser(user);
+    }
 
     this.closeSyncModal();
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`Hogar conectado con éxito: ${this.householdCode} ☁️`, 'success');
+    }
   }
 };
