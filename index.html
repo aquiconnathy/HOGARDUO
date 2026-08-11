@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1e1b4b">
+  <meta name="description" content="HogarDúo - App para parejas con sincronización en la nube: Tareas con Dado Aleatorio, Notas de Amor & Recordatorios, Despensa Inteligente, Mercado con Presupuesto y Tasa BCV">
+  <title>HogarDúo 💑 Organización, Despensa & Mercado</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body data-theme="dark">
+  <!-- Confetti Canvas -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <div id="app" class="app-container">
+    <!-- Header Principal -->
+    <header class="app-header">
+      <div class="header-brand">
+        <span class="brand-icon">💑</span>
+        <div>
+          <h1 class="brand-title">HogarDúo</h1>
+          <p class="brand-subtitle" id="header-couple-names">Cargando perfiles...</p>
+        </div>
+      </div>
+      
+      <div class="header-right-badges">
+        <!-- Botón Rápido Modo Oscuro / Claro -->
+        <button class="btn-icon-sm" id="btn-quick-theme" onclick="App.toggleThemeQuick()" title="Cambiar Tema Claro / Oscuro" style="border-radius: 50%;">
+          🌙
+        </button>
+
+        <!-- Badge de Sincronización en la Nube -->
+        <button class="cloud-status-badge" id="cloud-status-badge" onclick="CloudSync.openSyncModal()" title="Sincronización en la Nube">
+          <span class="status-dot" id="cloud-status-dot"></span>
+          <span class="status-text" id="cloud-status-text">En vivo</span>
+        </button>
+
+        <!-- Widget Tasa BCV Rápida -->
+        <div class="bcv-quick-badge" id="bcv-quick-badge" onclick="App.navigateTo('bcv')" title="Tasa Oficial BCV">
+          <span class="badge-flag">🇻🇪</span>
+          <div class="badge-content">
+            <span class="badge-label">BCV Dólar</span>
+            <span class="badge-rate" id="quick-bcv-rate">--.-- Bs</span>
+          </div>
+          <button class="btn-icon-xs" id="quick-refresh-bcv" onclick="event.stopPropagation(); BCV.fetchLiveRate(true)" title="Actualizar Tasa">🔄</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Contenedor Principal de Vistas -->
+    <main class="main-content">
+      <!-- 1. VISTA INICIO / DASHBOARD -->
+      <section id="view-dashboard" class="tab-view active">
+        <!-- Tarjeta de Bienvenida Dúo -->
+        <div class="welcome-card glass-panel">
+          <div class="welcome-avatars">
+            <div class="avatar-bubble p1-avatar" id="dash-avatar-p1">👩</div>
+            <span class="avatar-heart">❤️</span>
+            <div class="avatar-bubble p2-avatar" id="dash-avatar-p2">👨</div>
+          </div>
+          <h2 class="welcome-title" id="dash-greeting">¡Hola, equipo del hogar!</h2>
+          <p class="welcome-quote">"El trabajo en equipo hace que el hogar funcione en armonía."</p>
+        </div>
+
+        <!-- 💌 WIDGET FIJADO: NOTAS DE AMOR & RECORDATORIOS -->
+        <div class="notes-hero-widget glass-panel" id="widget-notes-section">
+          <div class="widget-header-row">
+            <div class="widget-title-wrap">
+              <span class="widget-icon">💌</span>
+              <h3 class="widget-title">Notas & Recordatorios de la Pareja</h3>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="Notes.openCreateModal()">
+              ✍️ Nueva Nota
+            </button>
+          </div>
+          
+          <div id="hero-note-card">
+            <!-- La nota activa más reciente se renderiza aquí -->
+          </div>
+
+          <div id="pinned-notes-container">
+            <!-- Historial de notas anteriores -->
+          </div>
+        </div>
+
+        <!-- Tarjetas de Resumen Rápido -->
+        <div class="stats-grid" id="widget-stats-section">
+          <div class="stat-card glass-panel" onclick="App.navigateTo('tasks')">
+            <div class="stat-icon">📋</div>
+            <div class="stat-info">
+              <span class="stat-num" id="dash-pending-tasks">0</span>
+              <span class="stat-label">Tareas pendientes</span>
+            </div>
+            <span class="stat-arrow">→</span>
+          </div>
+
+          <div class="stat-card glass-panel" onclick="App.navigateTo('pantry')">
+            <div class="stat-icon">🥫</div>
+            <div class="stat-info">
+              <span class="stat-num text-warning" id="dash-low-pantry">0</span>
+              <span class="stat-label">Artículos por agotarse</span>
+            </div>
+            <span class="stat-arrow">→</span>
+          </div>
+
+          <div class="stat-card glass-panel" onclick="App.navigateTo('shopping')">
+            <div class="stat-icon">🛒</div>
+            <div class="stat-info">
+              <span class="stat-num" id="dash-shopping-items">0</span>
+              <span class="stat-label">Por comprar en mercado</span>
+            </div>
+            <span class="stat-arrow">→</span>
+          </div>
+
+          <div class="stat-card glass-panel" onclick="App.navigateTo('bcv')">
+            <div class="stat-icon">🧮</div>
+            <div class="stat-info">
+              <span class="stat-num text-success" id="dash-bcv-rate">--.--</span>
+              <span class="stat-label">Tasa BCV (Bs/$)</span>
+            </div>
+            <span class="stat-arrow">→</span>
+          </div>
+        </div>
+
+        <!-- Acciones Rápidas -->
+        <div class="quick-actions-bar" id="widget-actions-section">
+          <button class="btn btn-primary" onclick="Tasks.openRollDiceModal()">
+            <span>🎲</span> Lanzar Dado de Tareas
+          </button>
+          <button class="btn btn-accent" onclick="Pantry.generateShoppingList()">
+            <span>⚡</span> Auto-Generar Mercado
+          </button>
+        </div>
+      </section>
+
+      <!-- 2. VISTA TAREAS & CANVAS DÚO -->
+      <section id="view-tasks" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Tareas del Hogar</h2>
+            <p class="view-desc">Canvas de distribución e intercambio de responsabilidades</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn btn-sm btn-dice" onclick="Tasks.openRollDiceModal()" title="Sortear tarea con dado">
+              🎲 Dado Aleatorio
+            </button>
+            <button class="btn btn-sm btn-primary" onclick="Tasks.openCreateModal()">
+              ➕ Nueva Tarea
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtros de Asignación -->
+        <div class="filter-pill-bar">
+          <button class="pill-btn active" data-filter="all" onclick="Tasks.setFilter('all', this)">Todas</button>
+          <button class="pill-btn" data-filter="p1" id="filter-p1-btn" onclick="Tasks.setFilter('p1', this)">Ella</button>
+          <button class="pill-btn" data-filter="p2" id="filter-p2-btn" onclick="Tasks.setFilter('p2', this)">Él</button>
+          <button class="pill-btn" data-filter="both" onclick="Tasks.setFilter('both', this)">Ambos 🤝</button>
+        </div>
+
+        <!-- Canvas / Tablero Visual de Tareas -->
+        <div class="tasks-canvas-grid" id="tasks-container">
+          <!-- Las tareas se renderizan dinámicamente aquí -->
+        </div>
+      </section>
+
+      <!-- 3. VISTA DESPENSA & INVENTARIO -->
+      <section id="view-pantry" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Despensa & Stock</h2>
+            <p class="view-desc">Control de provisiones y sugerencias de compra</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn btn-sm btn-accent" onclick="Pantry.generateShoppingList()">
+              ⚡ Pasar a Mercado
+            </button>
+            <button class="btn btn-sm btn-primary" onclick="Pantry.openCreateModal()">
+              ➕ Nuevo Artículo
+            </button>
+          </div>
+        </div>
+
+        <!-- Categorías de Despensa -->
+        <div class="category-tabs-bar" id="pantry-categories">
+          <button class="cat-tab active" data-cat="all" onclick="Pantry.setCategory('all', this)">Todos</button>
+          <button class="cat-tab" data-cat="viveres" onclick="Pantry.setCategory('viveres', this)">🌾 Víveres</button>
+          <button class="cat-tab" data-cat="proteinas" onclick="Pantry.setCategory('proteinas', this)">🥩 Frescos/Carnes</button>
+          <button class="cat-tab" data-cat="limpieza" onclick="Pantry.setCategory('limpieza', this)">🧹 Limpieza</button>
+          <button class="cat-tab" data-cat="higiene" onclick="Pantry.setCategory('higiene', this)">🧴 Higiene</button>
+          <button class="cat-tab" data-cat="snacks" onclick="Pantry.setCategory('snacks', this)">🍪 Snacks/Bebidas</button>
+        </div>
+
+        <!-- Grid de Artículos de Despensa -->
+        <div class="pantry-grid" id="pantry-items-container">
+          <!-- Artículos renderizados dinámicamente -->
+        </div>
+      </section>
+
+      <!-- 4. VISTA MERCADO QUINCENAL & PRESUPUESTO -->
+      <section id="view-shopping" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Mercado Quincenal 🛒</h2>
+            <p class="view-desc">Compras con presupuesto y cálculo de excedente en vivo</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn btn-sm btn-primary" onclick="Shopping.openCreateModal()">
+              ➕ Agregar Producto
+            </button>
+          </div>
+        </div>
+
+        <!-- PANEL DE CONTROL DE PRESUPUESTO DINÁMICO -->
+        <div class="budget-panel glass-panel" id="budget-panel">
+          <div class="budget-header">
+            <div class="budget-title-wrap">
+              <span class="budget-badge-icon">💰</span>
+              <div>
+                <span class="budget-label">Presupuesto del Mercado</span>
+                <div class="budget-edit-row">
+                  <span class="currency-symbol">$</span>
+                  <input type="number" id="budget-usd-input" step="0.5" class="budget-input" placeholder="0.00" onchange="Shopping.updateBudgetFromUSD(this.value)">
+                  <span class="budget-in-bs" id="budget-bs-equivalent">≈ 0.00 Bs</span>
+                </div>
+              </div>
+            </div>
+            <button class="btn-icon-sm" onclick="Shopping.openBudgetConfig()" title="Editar Presupuesto">✏️</button>
+          </div>
+
+          <!-- Barra de Progreso y Descuento en Tiempo Real -->
+          <div class="budget-progress-bar-wrap">
+            <div class="budget-progress-bar" id="budget-progress-bar" style="width: 0%;"></div>
+          </div>
+
+          <!-- Indicadores de Balance y Excedente -->
+          <div class="budget-metrics-grid">
+            <div class="metric-item">
+              <span class="metric-lbl">Total Gastado</span>
+              <span class="metric-val text-primary" id="total-spent-usd">$0.00</span>
+              <span class="metric-sub" id="total-spent-bs">0.00 Bs</span>
+            </div>
+
+            <div class="metric-item" id="metric-remaining-box">
+              <span class="metric-lbl" id="remaining-label">Restante Disponible</span>
+              <span class="metric-val text-success" id="remaining-usd">$0.00</span>
+              <span class="metric-sub" id="remaining-bs">0.00 Bs</span>
+            </div>
+
+            <!-- Caja de Excedente (Aparece al sobrepasar el presupuesto) -->
+            <div class="metric-item surplus-box hidden" id="surplus-metric-box">
+              <span class="metric-lbl text-danger">⚠️ Excedente / Sobrepresupuesto</span>
+              <span class="metric-val text-danger" id="surplus-usd">+$0.00</span>
+              <span class="metric-sub text-danger" id="surplus-bs">+0.00 Bs</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Compras en Supermercado -->
+        <div class="shopping-list-header">
+          <span class="list-count-badge" id="shopping-count-badge">0 productos</span>
+          <div class="list-filters-right">
+            <button class="btn-text-sm" onclick="Shopping.clearChecked()">🧹 Limpiar Comprados</button>
+          </div>
+        </div>
+
+        <div class="shopping-list" id="shopping-items-container">
+          <!-- Productos renderizados dinámicamente -->
+        </div>
+      </section>
+
+      <!-- 5. VISTA BCV & CALCULADORA -->
+      <section id="view-bcv" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Tasa BCV & Conversor</h2>
+            <p class="view-desc">Oficial Banco Central de Venezuela en tiempo real</p>
+          </div>
+          <button class="btn btn-sm btn-accent" id="btn-fetch-bcv" onclick="BCV.fetchLiveRate(true)">
+            🔄 Actualizar Tasa
+          </button>
+        </div>
+
+        <!-- Tarjeta Principal de Cotización BCV -->
+        <div class="bcv-hero-card glass-panel">
+          <div class="bcv-hero-badge">
+            <span class="flag-icon">🇻🇪</span>
+            <span>Tasa Oficial BCV</span>
+          </div>
+          <div class="bcv-price-display">
+            <span class="bcv-price-num" id="bcv-display-rate">--.--</span>
+            <span class="bcv-price-currency">Bs / USD</span>
+          </div>
+          <p class="bcv-timestamp" id="bcv-timestamp">Última actualización: Consultando...</p>
+          <div class="bcv-manual-override">
+            <label for="manual-rate-input">Ajuste manual (si estás sin internet):</label>
+            <div class="input-with-action">
+              <input type="number" id="manual-rate-input" step="0.01" placeholder="Ej. 68.50">
+              <button class="btn btn-sm btn-primary" onclick="BCV.setManualRate()">Guardar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Conversor Bidireccional Rápido -->
+        <div class="converter-box glass-panel">
+          <h3 class="box-title">🔄 Conversor Instantáneo</h3>
+          <div class="converter-grid">
+            <div class="conv-field">
+              <label>Dólares ($ USD)</label>
+              <div class="conv-input-wrap">
+                <span>$</span>
+                <input type="number" id="conv-usd-input" step="0.01" placeholder="0.00" oninput="BCV.convertUSDToBs(this.value)">
+              </div>
+            </div>
+            <div class="conv-swap-icon">⇄</div>
+            <div class="conv-field">
+              <label>Bolívares (Bs)</label>
+              <div class="conv-input-wrap">
+                <span>Bs</span>
+                <input type="number" id="conv-bs-input" step="0.01" placeholder="0.00" oninput="BCV.convertBsToUSD(this.value)">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calculadora de Compras para el Supermercado -->
+        <div class="calc-widget glass-panel">
+          <h3 class="box-title">🧮 Calculadora de Pasillo</h3>
+          <div class="calc-display-wrap">
+            <div class="calc-history" id="calc-history"></div>
+            <div class="calc-screen" id="calc-screen">0</div>
+            <div class="calc-equivalent" id="calc-screen-bs">≈ 0.00 Bs</div>
+          </div>
+          <div class="calc-keypad">
+            <button class="btn-calc btn-op" onclick="BCV.calcInput('C')">C</button>
+            <button class="btn-calc btn-op" onclick="BCV.calcInput('DEL')">⌫</button>
+            <button class="btn-calc btn-op" onclick="BCV.calcInput('%')">%</button>
+            <button class="btn-calc btn-op" onclick="BCV.calcInput('/')">÷</button>
+
+            <button class="btn-calc" onclick="BCV.calcInput('7')">7</button>
+            <button class="btn-calc" onclick="BCV.calcInput('8')">8</button>
+            <button class="btn-calc" onclick="BCV.calcInput('9')">9</button>
+            <button class="btn-calc btn-op" onclick="BCV.calcInput('*')">×</button>
+
+            <button class="btn-calc" onclick="BCV.calcInput('4')">4</button>
+            <button class="btn-calc" onclick="BCV.calcInput('5')">5</button>
+            <button class="btn-calc" onclick="BCV.calcInput('6')">6</button>
+            <button class="btn-calc btn-op" onclick="BCV.calcInput('-')">-</button>
+
+            <button class="btn-calc" onclick="BCV.calcInput('1')">1</button>
+            <button class="btn-calc" onclick="BCV.calcInput('2')">2</button>
+            <button class="btn-calc" onclick="BCV.calcInput('3')">3</button>
+            <button class="btn-calc btn-op" onclick="BCV.calcInput('+')">+</button>
+
+            <button class="btn-calc" onclick="BCV.calcInput('0')">0</button>
+            <button class="btn-calc" onclick="BCV.calcInput('.')">.</button>
+            <button class="btn-calc btn-equals" onclick="BCV.calcInput('=')">=</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. VISTA AJUSTES & PERFILES -->
+      <section id="view-settings" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Configuración de la Pareja</h2>
+            <p class="view-desc">Personalización, código de sincronización y opciones offline</p>
+          </div>
+        </div>
+
+        <!-- Sincronización en la Nube -->
+        <div class="settings-section glass-panel">
+          <h3 class="box-title">☁️ Sincronización en la Nube (Cloud Sync)</h3>
+          <p class="section-desc">Conecta ambos celulares con tu Código de Hogar para ver todo en vivo.</p>
+          <div class="sync-info-box">
+            <span class="text-muted" style="font-size: 0.8rem;">Código de Hogar Actual:</span>
+            <strong class="household-code-tag" id="current-household-code-display">HOGAR-2026</strong>
+          </div>
+          <button class="btn btn-outline full-width" onclick="CloudSync.openSyncModal()" style="margin-top: 0.5rem;">
+            ⚙️ Configurar Código y Dispositivo
+          </button>
+        </div>
+
+        <div class="settings-section glass-panel">
+          <h3 class="box-title">👥 Perfiles de la Pareja</h3>
+          <div class="profiles-edit-grid">
+            <div class="profile-card-edit">
+              <h4>Persona 1</h4>
+              <div class="form-group">
+                <label>Nombre / Apodo</label>
+                <input type="text" id="p1-name-input" placeholder="Ella / Tu Nombre">
+              </div>
+              <div class="form-group">
+                <label>Emoji / Avatar</label>
+                <input type="text" id="p1-avatar-input" maxlength="2" placeholder="👩">
+              </div>
+            </div>
+
+            <div class="profile-card-edit">
+              <h4>Persona 2</h4>
+              <div class="form-group">
+                <label>Nombre / Apodo</label>
+                <input type="text" id="p2-name-input" placeholder="Él / Pareja">
+              </div>
+              <div class="form-group">
+                <label>Emoji / Avatar</label>
+                <input type="text" id="p2-avatar-input" maxlength="2" placeholder="👨">
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="App.saveProfiles()">Guardar Perfiles</button>
+        </div>
+
+        <!-- Respaldo de Datos (Privacidad 100% Offline-First) -->
+        <div class="settings-section glass-panel">
+          <h3 class="box-title">💾 Respaldo y Restauración de Datos</h3>
+          <p class="section-desc">Exporta una copia de seguridad para guardar o transferir tus datos.</p>
+          <div class="backup-actions-grid">
+            <button class="btn btn-outline" onclick="Store.exportBackup()">
+              📥 Exportar Copia de Seguridad (JSON)
+            </button>
+            <label class="btn btn-outline file-input-label">
+              📤 Restaurar Copia (Importar JSON)
+              <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="Store.importBackup(event)">
+            </label>
+          </div>
+        </div>
+
+        <!-- Personalización de Widgets del Inicio -->
+        <div class="settings-section glass-panel">
+          <h3 class="box-title">🎛️ Personalizar Widgets del Inicio</h3>
+          <p class="section-desc">Activa, edita o desactiva qué secciones deseas ver en la pantalla de inicio.</p>
+          
+          <div class="theme-toggle-row" style="margin-top: 0.75rem;">
+            <span>💌 Widget de Notas & Recordatorios</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-widget-notes" checked onchange="App.toggleWidget('showNotes', this.checked)">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="theme-toggle-row" style="margin-top: 0.75rem;">
+            <span>📊 Tarjetas de Resumen Rápido</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-widget-stats" checked onchange="App.toggleWidget('showStats', this.checked)">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="theme-toggle-row" style="margin-top: 0.75rem;">
+            <span>⚡ Botones de Acciones Rápidas (Dado y Auto-Mercado)</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-widget-actions" checked onchange="App.toggleWidget('showQuickActions', this.checked)">
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Opciones de Tema y PWA -->
+        <div class="settings-section glass-panel">
+          <h3 class="box-title">🎨 Apariencia & Aplicación</h3>
+          <div class="theme-toggle-row">
+            <span>Modo Oscuro Elegante</span>
+            <label class="switch">
+              <input type="checkbox" id="theme-checkbox" checked onchange="App.toggleTheme(this.checked)">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="pwa-install-box" id="pwa-install-box" style="margin-top: 1rem;">
+            <button class="btn btn-accent full-width" id="btn-install-pwa" onclick="App.installPWA()">
+              📱 Instalar App en Pantalla de Inicio
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Barra de Navegación Inferior (Thumb Zone Ergonomica) -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="dashboard" onclick="App.navigateTo('dashboard')">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Inicio</span>
+      </button>
+      <button class="nav-item" data-tab="tasks" onclick="App.navigateTo('tasks')">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Tareas</span>
+        <span class="nav-badge hidden" id="nav-tasks-badge">0</span>
+      </button>
+      <button class="nav-item" data-tab="pantry" onclick="App.navigateTo('pantry')">
+        <span class="nav-icon">🥫</span>
+        <span class="nav-label">Despensa</span>
+      </button>
+      <button class="nav-item" data-tab="shopping" onclick="App.navigateTo('shopping')">
+        <span class="nav-icon">🛒</span>
+        <span class="nav-label">Mercado</span>
+        <span class="nav-badge hidden" id="nav-shopping-badge">0</span>
+      </button>
+      <button class="nav-item" data-tab="bcv" onclick="App.navigateTo('bcv')">
+        <span class="nav-icon">🧮</span>
+        <span class="nav-label">BCV / Calc</span>
+      </button>
+      <button class="nav-item" data-tab="settings" onclick="App.navigateTo('settings')">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Ajustes</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODAL: ESCRIBIR NOTA DE AMOR / RECORDATORIO -->
+  <dialog id="modal-note-form" class="native-dialog">
+    <form method="dialog" class="modal-content" onsubmit="Notes.handleFormSubmit(event)">
+      <div class="modal-header">
+        <h3 class="modal-title" id="note-modal-title">💌 Nueva Nota o Recordatorio</h3>
+        <button type="button" class="btn-close" onclick="Notes.closeFormModal()">✕</button>
+      </div>
+
+      <input type="hidden" id="note-edit-id">
+
+      <div class="form-group">
+        <label for="note-text-input">Mensaje</label>
+        <textarea id="note-text-input" rows="3" required placeholder="Ej. ¡Te amo! Recuerda sacar la carne a descongelar ❤️"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="note-type-select">Tipo de Nota</label>
+          <select id="note-type-select" class="form-select">
+            <option value="love">❤️ Mensaje de Amor</option>
+            <option value="reminder">⏰ Recordatorio</option>
+            <option value="urgent">🚨 Urgente / Importante</option>
+            <option value="surprise">🎁 Detalle / Sorpresa</option>
+            <option value="task">📌 Tarea Rápida</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="note-reminder-input">Hora (Opcional)</label>
+          <input type="datetime-local" id="note-reminder-input">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="Notes.closeFormModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Enviar a Pantalla de Inicio 💌</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: SINCRONIZACIÓN EN LA NUBE (CÓDIGO DE HOGAR) -->
+  <dialog id="modal-cloud-sync" class="native-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">☁️ Conectar Hogar en la Nube</h3>
+        <button type="button" class="btn-close" onclick="CloudSync.closeSyncModal()">✕</button>
+      </div>
+
+      <p class="modal-subtitle">Ambos deben colocar el mismo <strong>Código de Hogar</strong> para ver los cambios sincronizados en vivo.</p>
+
+      <div class="form-group">
+        <label for="household-code-input">Código de Hogar (Compartido)</label>
+        <input type="text" id="household-code-input" placeholder="Ej. HOGAR-PEREZ-2026">
+      </div>
+
+      <div class="form-group">
+        <label for="device-owner-select">¿Quién usa este dispositivo?</label>
+        <select id="device-owner-select" class="form-select">
+          <option value="p1">Persona 1 (Ella)</option>
+          <option value="p2">Persona 2 (Él)</option>
+        </select>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="CloudSync.closeSyncModal()">Cerrar</button>
+        <button type="button" class="btn btn-primary" onclick="CloudSync.saveSyncSettings()">Conectar Hogar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- MODAL: DADO ALEATORIO 3D DE TAREAS -->
+  <dialog id="modal-dice" class="native-dialog">
+    <div class="modal-content text-center">
+      <div class="modal-header">
+        <h3 class="modal-title">🎲 Sorteo Justo con Dado</h3>
+        <button class="btn-close" onclick="Tasks.closeRollDiceModal()">✕</button>
+      </div>
+      <p class="modal-subtitle">¿Quién se encarga de la tarea? ¡Que el destino decida!</p>
+
+      <!-- Selector o Escritura de la Tarea a Sortear -->
+      <div class="dice-task-input-section" style="text-align: left; margin: 0.5rem 0;">
+        <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.25rem; display: block;">
+          📌 ¿Qué tarea van a sortear?
+        </label>
+        
+        <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+          <input type="text" id="dice-custom-task-input" placeholder="Escribe aquí (Ej. Lavar los platos, Cocinar)" style="font-size: 0.9rem;">
+          
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 0.72rem; color: var(--text-muted);">O elegir de la lista:</span>
+            <select id="dice-task-select" class="form-select" style="font-size: 0.8rem; padding: 0.35rem 0.6rem;" onchange="Tasks.onDiceSelectChange(this.value)">
+              <option value="">-- Seleccionar tarea existente --</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div class="dice-scene">
+        <div class="dice-cube" id="dice-3d">
+          <div class="dice-face face-1">👩</div>
+          <div class="dice-face face-2">👨</div>
+          <div class="dice-face face-3">🤝</div>
+          <div class="dice-face face-4">👩</div>
+          <div class="dice-face face-5">👨</div>
+          <div class="dice-face face-6">❤️</div>
+        </div>
+      </div>
+
+      <div class="dice-result-card hidden" id="dice-result-card">
+        <span class="result-badge">Asignado a:</span>
+        <h2 class="result-winner" id="dice-winner-name">¡Nombre!</h2>
+        <p class="result-task" id="dice-selected-task-title">Tarea seleccionada</p>
+      </div>
+
+      <div class="dice-controls">
+        <button class="btn btn-lg btn-dice full-width" id="btn-roll-dice" onclick="Tasks.rollDice()">
+          🎲 ¡Lanzar Dado!
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- MODAL: NUEVA / EDITAR TAREA -->
+  <dialog id="modal-task-form" class="native-dialog">
+    <form method="dialog" class="modal-content" onsubmit="Tasks.handleFormSubmit(event)">
+      <div class="modal-header">
+        <h3 class="modal-title" id="task-modal-title">Nueva Tarea del Hogar</h3>
+        <button type="button" class="btn-close" onclick="Tasks.closeFormModal()">✕</button>
+      </div>
+
+      <input type="hidden" id="task-edit-id">
+
+      <div class="form-group">
+        <label for="task-title">Título de la Tarea</label>
+        <input type="text" id="task-title" required placeholder="Ej. Lavar los platos, Limpiar la cocina">
+      </div>
+
+      <div class="form-group">
+        <label for="task-assignee">Responsable Inicial</label>
+        <select id="task-assignee" class="form-select">
+          <option value="p1" id="opt-p1">Persona 1</option>
+          <option value="p2" id="opt-p2">Persona 2</option>
+          <option value="both">Ambos (Juntos) 🤝</option>
+          <option value="unassigned">Sin asignar (Para el Dado 🎲)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="task-frequency">Frecuencia / Tipo</label>
+        <select id="task-frequency" class="form-select">
+          <option value="daily">Diaria</option>
+          <option value="weekly">Semanal</option>
+          <option value="quincenal">Quincenal</option>
+          <option value="occasional">Ocasional</option>
+        </select>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="Tasks.closeFormModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar Tarea</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: NUEVO / EDITAR ARTÍCULO DESPENSA -->
+  <dialog id="modal-pantry-form" class="native-dialog">
+    <form method="dialog" class="modal-content" onsubmit="Pantry.handleFormSubmit(event)">
+      <div class="modal-header">
+        <h3 class="modal-title" id="pantry-modal-title">Artículo de Despensa</h3>
+        <button type="button" class="btn-close" onclick="Pantry.closeFormModal()">✕</button>
+      </div>
+
+      <input type="hidden" id="pantry-edit-id">
+
+      <div class="form-group">
+        <label for="pantry-name">Nombre del Producto</label>
+        <input type="text" id="pantry-name" required placeholder="Ej. Arroz, Harina PAN, Detergente">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="pantry-category">Categoría</label>
+          <select id="pantry-category" class="form-select">
+            <option value="viveres">🌾 Víveres</option>
+            <option value="proteinas">🥩 Frescos/Carnes</option>
+            <option value="limpieza">🧹 Limpieza</option>
+            <option value="higiene">🧴 Higiene</option>
+            <option value="snacks">🍪 Snacks/Bebidas</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="pantry-status">Estado de Stock</label>
+          <select id="pantry-status" class="form-select">
+            <option value="abundant">🟢 Abundante</option>
+            <option value="low">🟡 Por Agotarse</option>
+            <option value="out">🔴 Agotado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="Pantry.closeFormModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar Artículo</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: NUEVO / EDITAR PRODUCTO DE MERCADO -->
+  <dialog id="modal-shopping-form" class="native-dialog">
+    <form method="dialog" class="modal-content" onsubmit="Shopping.handleFormSubmit(event)">
+      <div class="modal-header">
+        <h3 class="modal-title" id="shopping-modal-title">Producto de Mercado</h3>
+        <button type="button" class="btn-close" onclick="Shopping.closeFormModal()">✕</button>
+      </div>
+
+      <input type="hidden" id="shopping-edit-id">
+
+      <div class="form-group">
+        <label for="shop-item-name">Nombre del Producto</label>
+        <input type="text" id="shop-item-name" required placeholder="Ej. 2kg Harina, Queso blanco, Jabón">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="shop-item-qty">Cantidad</label>
+          <input type="number" id="shop-item-qty" min="1" value="1" required>
+        </div>
+
+        <div class="form-group">
+          <label for="shop-item-currency">Moneda de Ingreso</label>
+          <select id="shop-item-currency" class="form-select" onchange="Shopping.togglePriceCurrency(this.value)">
+            <option value="USD">$ Dólares (USD)</option>
+            <option value="BS">Bs Bolívares</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="shop-item-price" id="shop-price-label">Precio Unitario ($ USD)</label>
+        <input type="number" id="shop-item-price" step="0.01" min="0" required placeholder="0.00">
+        <span class="price-helper-conversion" id="shop-price-conversion">≈ 0.00 Bs</span>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="Shopping.closeFormModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Scripts Modulares -->
+  <script src="js/audio-fx.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/cloud-sync.js"></script>
+  <script src="js/notes.js"></script>
+  <script src="js/bcv.js"></script>
+  <script src="js/tasks.js"></script>
+  <script src="js/pantry.js"></script>
+  <script src="js/shopping.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
