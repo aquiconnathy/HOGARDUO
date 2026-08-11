@@ -178,7 +178,9 @@ const CloudSync = {
   },
 
   getCleanHouseholdKey() {
-    return (this.householdCode || 'HOGAR-2026').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const raw = (this.householdCode || 'HOGAR-2026').toLowerCase().trim();
+    const clean = raw.replace(/[^a-z0-9]/g, '');
+    return clean || 'hogar2026';
   },
 
   // Conexión Cloud-First
@@ -199,7 +201,7 @@ const CloudSync = {
 
       try { this.dbRef.keepSynced(true); } catch(e) {}
 
-      // 1. Descargar estado inicial sin sobreescribir
+      // 1. Descargar estado existente o Inicializar si es un código nuevo
       this.dbRef.once('value').then((snapshot) => {
         const cloudData = snapshot.val();
         if (cloudData && cloudData.state) {
@@ -211,6 +213,9 @@ const CloudSync = {
             localStorage.setItem(Store.STORAGE_KEY, JSON.stringify(Store.state));
           } catch (e) {}
           Store.notify();
+        } else {
+          // Si el código es nuevo y no existía en Firebase, crearlo de inmediato
+          this.broadcastChange('ROOM_INITIALIZED', { createdBy: this.currentUserId });
         }
       });
 
@@ -519,6 +524,8 @@ const CloudSync = {
     if (user) {
       this.setCurrentUser(user);
     }
+
+    this.broadcastChange('ROOM_UPDATED', Store.state);
 
     this.closeSyncModal();
     if (typeof App !== 'undefined' && App.showToast) {
