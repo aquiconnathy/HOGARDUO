@@ -74,24 +74,32 @@ const CloudSync = {
 
       this.isInitialized = true;
 
+      // Persistencia permanente de sesión en este dispositivo
       if (firebase.auth) {
+        firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+
         firebase.auth().onAuthStateChanged((user) => {
           if (user) {
             this.currentUser = user;
             this.currentUserEmail = user.email;
             try { localStorage.setItem('hogarduo_user_email', user.email); } catch(e) {}
             this.loadUserHouseholdProfile(user.uid);
+            this.showMainApp();
+            this.connect();
           } else {
-            // Auto login anónimo para que la app siempre esté conectada y hermosa
-            firebase.auth().signInAnonymously().catch(() => {});
+            this.currentUser = null;
+            this.currentUserEmail = null;
+            // Si no hay sesión activa, mostrar pantalla de inicio de sesión
+            this.showAuthGateway();
           }
-          this.connect();
         });
       } else {
+        this.showMainApp();
         this.connect();
       }
     } catch (e) {
       console.warn('Firebase init warning:', e);
+      this.showMainApp();
       this.connect();
     }
   },
