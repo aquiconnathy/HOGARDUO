@@ -188,6 +188,38 @@ const App = {
     if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
   },
 
+  // Banner Flotante Interactivo Superior para Notas Nuevas (In-App Push)
+  showInAppBanner(senderName, noteText, noteType = 'love') {
+    const container = document.getElementById('inapp-banner-container');
+    if (!container) return;
+
+    let emoji = '💌';
+    if (noteType === 'reminder') emoji = '⏰';
+    if (noteType === 'urgent') emoji = '🚨';
+    if (noteType === 'surprise') emoji = '🎁';
+
+    container.innerHTML = `
+      <div class="inapp-floating-banner" onclick="App.navigateTo('dashboard')">
+        <div class="inapp-banner-icon">${emoji}</div>
+        <div class="inapp-banner-content">
+          <strong class="inapp-banner-author">${senderName}</strong>
+          <p class="inapp-banner-text">${noteText}</p>
+        </div>
+        <button class="inapp-banner-close" onclick="event.stopPropagation(); this.parentElement.remove()">✕</button>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const banner = container.querySelector('.inapp-floating-banner');
+      if (banner) {
+        banner.style.opacity = '0';
+        banner.style.transform = 'translateY(-20px)';
+        banner.style.transition = 'all 0.3s ease';
+        setTimeout(() => banner.remove(), 300);
+      }
+    }, 6000);
+  },
+
   sendPushNotification(title, body) {
     if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
     if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
