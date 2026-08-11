@@ -1,9 +1,11 @@
 {
-  "name": "HogarDúo - App para Parejas",
+  "name": "HogarDúo",
   "short_name": "HogarDúo",
-  "description": "Organización del hogar, tareas con dado aleatorio, despensa y mercado con presupuesto y tasa BCV en vivo.",
+  "id": "hogarduo_app_pwa",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#0b0f19",
   "theme_color": "#111827",
   "icons": [

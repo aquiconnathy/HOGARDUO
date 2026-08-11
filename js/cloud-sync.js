@@ -1,6 +1,6 @@
 /**
- * CloudSync - Google Firebase Official Realtime Engine + Instant QR Couple Pairing
- * Bulletproof multi-device state synchronization & push notification dispatcher.
+ * CloudSync - Google Firebase Realtime Engine + Google FCM Cloud Messaging (VAPID)
+ * Delivers background push notifications with vibration and sound even when the phone is locked.
  */
 const CloudSync = {
   firebaseConfig: {
@@ -14,24 +14,23 @@ const CloudSync = {
     measurementId: "G-1E7PXG23FV"
   },
 
+  vapidKey: "BN-joOU-IJeLmfVZTtU6o-CMo8B9YR6n1I7EcIVDRdoOihzRxYx8aw5ES3C6tywE_pVCYjvaQ9XeSIP0UlG-PMw",
+
   householdCode: 'HOGAR-2026',
   sessionId: null,
   currentUserId: 'p1', // 'p1' o 'p2'
   dbRef: null,
+  messaging: null,
   isConnected: false,
   isInitialized: false,
-  lastHandledTimestamp: 0,
 
   init() {
     try {
-      // Identificador de sesión único e irrepetible para este dispositivo físico
       this.sessionId = 'ses_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-
       this.householdCode = (localStorage.getItem('hogarduo_household_code') || 'HOGAR-2026').trim().toUpperCase();
       this.currentUserId = localStorage.getItem('hogarduo_user_id') || 'p1';
-      this.lastHandledTimestamp = Date.now() - 1000;
 
-      // 1. Detectar si el usuario abrió la app escaneando un Código QR o enlace de invitación
+      // 1. Detectar invitación por Código QR
       this.checkUrlInviteParams();
 
       this.updateCloudUI();
@@ -41,12 +40,11 @@ const CloudSync = {
     }
   },
 
-  // Auto-Login / Vinculación con Código QR o Enlace Mágico
   checkUrlInviteParams() {
     try {
       const params = new URLSearchParams(window.location.search);
       const inviteCode = params.get('code') || params.get('hogar');
-      const inviteRole = params.get('role'); // 'p1' o 'p2'
+      const inviteRole = params.get('role');
 
       if (inviteCode) {
         this.householdCode = inviteCode.trim().toUpperCase();
@@ -57,7 +55,6 @@ const CloudSync = {
           localStorage.setItem('hogarduo_user_id', inviteRole);
         }
 
-        // Limpiar la URL en el navegador para mantenerla elegante
         window.history.replaceState({}, document.title, window.location.pathname);
 
         setTimeout(() => {
@@ -73,7 +70,6 @@ const CloudSync = {
 
   initFirebase() {
     if (typeof firebase === 'undefined') {
-      console.warn('Firebase SDK not loaded, using local storage fallback');
       this.updateStatus('online');
       return;
     }
@@ -86,16 +82,68 @@ const CloudSync = {
       this.isInitialized = true;
       this.updateStatus('connecting');
 
-      // Intentar autenticación silenciosa si está habilitada
       if (firebase.auth) {
         firebase.auth().signInAnonymously().catch(() => {});
       }
 
       this.connect();
+      this.initFCM();
     } catch (e) {
       console.warn('Firebase init warning:', e);
       this.updateStatus('online');
     }
+  },
+
+  // Inicializar Google Firebase Cloud Messaging (Push en segundo plano)
+  async initFCM() {
+    if (typeof firebase === 'undefined' || !firebase.messaging) return;
+
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const messaging = firebase.messaging();
+        this.messaging = messaging;
+
+        // Escuchar mensajes push de Firebase en primer plano
+        messaging.onMessage((payload) => {
+          const title = payload.notification?.title || payload.data?.title || '💌 Nota de tu pareja';
+          const body = payload.notification?.body || payload.data?.body || 'Tienes un nuevo mensaje';
+          
+          if (typeof App !== 'undefined') {
+            App.showToast(`💌 ${title}: "${body}"`, 'success');
+            App.sendPushNotification(title, body);
+          }
+          if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+          if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+        });
+
+        // Registrar Service Worker para FCM
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+          const token = await messaging.getToken({
+            vapidKey: this.vapidKey,
+            serviceWorkerRegistration: registration
+          });
+
+          if (token) {
+            this.saveDeviceToken(token);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('FCM registration skipped:', err);
+    }
+  },
+
+  // Guardar token FCM del celular en la base de datos
+  saveDeviceToken(token) {
+    if (!token || !this.isInitialized || !firebase.database) return;
+    try {
+      const houseKey = this.getCleanHouseholdKey();
+      firebase.database().ref(`households/${houseKey}/fcm_tokens/${this.currentUserId}`).set({
+        token: token,
+        updatedAt: Date.now()
+      });
+    } catch (e) {}
   },
 
   setHouseholdCode(code) {
@@ -185,8 +233,6 @@ const CloudSync = {
       state: Store.state
     };
 
-    this.lastHandledTimestamp = payload.timestamp;
-
     if (this.dbRef) {
       this.updateStatus('syncing');
       this.dbRef.set(payload)
@@ -273,7 +319,6 @@ const CloudSync = {
 
     if (qrLabel) qrLabel.textContent = this.householdCode;
     
-    // Generar código QR instantáneo de alta resolución
     if (qrImg) {
       qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(inviteUrl)}`;
     }
