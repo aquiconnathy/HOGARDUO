@@ -39,6 +39,7 @@ const CloudSync = {
 
       this.updateCloudUI();
       this.initFirebase();
+      setTimeout(() => this.updateDiagnosticsUI(), 300);
     } catch (e) {
       console.warn('CloudSync init error:', e);
     }

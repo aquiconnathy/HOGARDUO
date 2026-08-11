@@ -56,6 +56,10 @@ const App = {
     if (targetView) targetView.classList.add('active');
     if (targetNav) targetNav.classList.add('active');
 
+    if (tabId === 'settings' && typeof CloudSync !== 'undefined') {
+      CloudSync.updateDiagnosticsUI();
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
 
@@ -172,9 +176,16 @@ const App = {
       if (permission === 'granted') {
         this.showToast('¡Notificaciones push activadas! 🔔', 'success');
         if (btn) btn.textContent = '✅ Notificaciones Activadas';
+        if (typeof CloudSync !== 'undefined') {
+          CloudSync.initFCM();
+          CloudSync.updateDiagnosticsUI();
+        }
       } else if (permission === 'denied') {
         this.showToast('Permiso de notificaciones bloqueado en el navegador', 'danger');
         if (btn) btn.textContent = '❌ Notificaciones Bloqueadas';
+        if (typeof CloudSync !== 'undefined') {
+          CloudSync.updateDiagnosticsUI();
+        }
       }
     } catch (e) {
       console.warn('Notification error:', e);
