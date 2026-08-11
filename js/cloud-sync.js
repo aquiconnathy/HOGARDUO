@@ -292,27 +292,24 @@ const CloudSync = {
     Store.notify();
     this.updateStatus('online');
 
-    // 2. Notificar si hay una nota nueva enviada por la pareja
+    // 2. Notificar si hay una nota nueva enviada desde el otro dispositivo
     const incomingNote = payload.extra?.note || (Store.state?.notes && Store.state.notes[0]);
     if (incomingNote && incomingNote.id && incomingNote.id !== this.lastNotifiedNoteId) {
-      // Verificar que la nota fue escrita por la pareja y no por este usuario
-      if (incomingNote.author !== this.currentUserId) {
-        this.lastNotifiedNoteId = incomingNote.id;
-        try { localStorage.setItem('hogarduo_last_notified_note', incomingNote.id); } catch(e) {}
+      this.lastNotifiedNoteId = incomingNote.id;
+      try { localStorage.setItem('hogarduo_last_notified_note', incomingNote.id); } catch(e) {}
 
-        const authorKey = incomingNote.author || (this.currentUserId === 'p1' ? 'p2' : 'p1');
-        const senderName = Store.state?.profiles?.[authorKey]?.name || (authorKey === 'p1' ? 'Ella' : 'Él');
-        const noteText = incomingNote.text || 'Nuevo mensaje de amor ❤️';
+      const authorKey = incomingNote.author || payload.senderUser || (this.currentUserId === 'p1' ? 'p2' : 'p1');
+      const senderName = Store.state?.profiles?.[authorKey]?.name || (authorKey === 'p1' ? 'Ella' : 'Él');
+      const noteText = incomingNote.text || 'Nuevo mensaje de amor ❤️';
 
-        if (typeof App !== 'undefined') {
-          App.showToast(`💌 ${senderName}: "${noteText}"`, 'success');
-          App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
-        }
-        
-        if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
-        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-        return;
+      if (typeof App !== 'undefined') {
+        App.showToast(`💌 ${senderName}: "${noteText}"`, 'success');
+        App.sendPushNotification(`💌 Mensaje de ${senderName}`, noteText);
       }
+      
+      if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+      return;
     }
 
     if (typeof App !== 'undefined') {
