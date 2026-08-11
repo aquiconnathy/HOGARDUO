@@ -351,7 +351,21 @@ const CloudSync = {
     Store.notify();
     this.updateStatus('online');
 
-    // 2. Notificar si hay una nota nueva enviada desde el otro dispositivo
+    // 2. Notificación especial de Prueba enviada por la pareja
+    if (payload.type === 'TEST_PUSH') {
+      const senderName = payload.extra?.sender || (this.currentUserId === 'p1' ? 'Él' : 'Ella');
+      const message = payload.extra?.message || '¡Prueba de Notificación de tu Pareja! ❤️';
+
+      if (typeof App !== 'undefined') {
+        App.showInAppBanner(senderName, message, 'love');
+        App.sendPushNotification(`💌 Prueba de ${senderName}`, message);
+      }
+      if (typeof AudioFX !== 'undefined') AudioFX.playSuccess();
+      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+      return;
+    }
+
+    // 3. Notificar si hay una nota nueva enviada desde el otro dispositivo
     const incomingNote = payload.extra?.note || (Store.state?.notes && Store.state.notes[0]);
     if (incomingNote && incomingNote.id && incomingNote.id !== this.lastNotifiedNoteId) {
       this.lastNotifiedNoteId = incomingNote.id;
@@ -384,10 +398,12 @@ const CloudSync = {
     const senderName = Store.state?.profiles?.[this.currentUserId]?.name || (this.currentUserId === 'p1' ? 'Ella' : 'Él');
     const msg = '¡Prueba de Notificación Push a tu pantalla de bloqueo! ❤️';
     
+    // Disparo dual: por Firebase en vivo y por pasarela Web Push
+    this.broadcastChange('TEST_PUSH', { sender: senderName, message: msg });
     this.sendBackgroundPushTrigger(senderName, msg);
     
     if (typeof App !== 'undefined') {
-      App.showToast(`🚀 Enviando orden Push al teléfono de tu pareja...`, 'info');
+      App.showToast(`🚀 ¡Notificación de prueba enviada al celular de ${senderName === 'Ella' ? 'Él' : 'Ella'}!`, 'success');
     }
   },
 
